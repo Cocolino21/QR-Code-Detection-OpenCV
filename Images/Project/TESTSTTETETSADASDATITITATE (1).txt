@@ -1,0 +1,3767 @@
+// OpenCVApplication.cpp : Defines the entry point for the console application.
+//
+
+#include "stdafx.h"
+#include "common.h"
+#include <opencv2/core/utils/logger.hpp>
+#include <queue>
+#include <random>
+#include <fstream>
+#include <string>
+#include <algorithm>
+
+wchar_t* projectPath;
+using namespace cv;
+
+void testOpenImage()
+{
+	char fname[MAX_PATH];
+	while(openFileDlg(fname))
+	{
+		Mat src;
+		src = imread(fname);
+		cv::imshow("image",src);
+		cv::waitKey();
+	}
+}
+
+void testOpenImagesFld()
+{
+	char folderName[MAX_PATH];
+	if (openFolderDlg(folderName)==0)
+		return;
+	char fname[MAX_PATH];
+	FileGetter fg(folderName,"bmp");
+	while(fg.getNextAbsFile(fname))
+	{
+		Mat src;
+		src = imread(fname);
+		cv::imshow(fg.getFoundFileName(),src);
+		if (cv::waitKey()==27) //ESC pressed
+			break;
+	}
+}
+
+void testImageOpenAndSave()
+{
+	_wchdir(projectPath);
+
+	Mat src, dst;
+
+	src = imread("Images/Lena_24bits.bmp", IMREAD_COLOR);	// Read the image
+
+	if (!src.data)	// Check for invalid input
+	{
+		printf("Could not open or find the image\n");
+		return;
+	}
+
+	// Get the image resolution
+	Size src_size = Size(src.cols, src.rows);
+
+	// Display window
+	const char* WIN_SRC = "Src"; //window for the source image
+	namedWindow(WIN_SRC, WINDOW_AUTOSIZE);
+	moveWindow(WIN_SRC, 0, 0);
+
+	const char* WIN_DST = "Dst"; //window for the destination (processed) image
+	namedWindow(WIN_DST, WINDOW_AUTOSIZE);
+	moveWindow(WIN_DST, src_size.width + 10, 0);
+
+	cvtColor(src, dst, COLOR_BGR2GRAY); //converts the source image to a grayscale one
+
+	imwrite("Images/Lena_24bits_gray.bmp", dst); //writes the destination to file
+
+	cv::imshow(WIN_SRC, src);
+	cv::imshow(WIN_DST, dst);
+
+	cv::waitKey(0);
+}
+
+void testNegativeImage()
+{
+	char fname[MAX_PATH];
+	while(openFileDlg(fname))
+	{
+		double t = (double)getTickCount(); // Get the current time [s]
+		
+		Mat src = imread(fname,IMREAD_GRAYSCALE);
+		int height = src.rows;
+		int width = src.cols;
+		Mat dst = Mat(height,width,CV_8UC1);
+		// Accessing individual pixels in an 8 bits/pixel image
+		// Inefficient way -> slow
+		for (int i=0; i<height; i++)
+		{
+			for (int j=0; j<width; j++)
+			{
+				uchar val = src.at<uchar>(i,j);
+				uchar neg = 255 - val;
+				dst.at<uchar>(i,j) = neg;
+			}
+		}
+
+		// Get the current time again and compute the time difference [s]
+		t = ((double)getTickCount() - t) / getTickFrequency();
+		// Print (in the console window) the processing time in [ms] 
+		printf("Time = %.3f [ms]\n", t * 1000);
+
+		cv::imshow("input image",src);
+		cv::imshow("negative image",dst);
+		cv::waitKey();
+	}
+}
+
+void negative_image() {
+	Mat img = imread("Images/kids.bmp", IMREAD_GRAYSCALE);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			img.at<uchar>(i, j) = 255 - img.at<uchar>(i, j);
+		}
+	}
+	cv::imshow("negative image", img);
+	cv::waitKey(0);
+}
+
+void additive_negative() {
+	Mat img = imread("Images/kids.bmp", IMREAD_GRAYSCALE);
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			img.at<uchar>(i, j) += 150;
+
+			if (img.at<uchar>(i, j) > 255) {
+				img.at <uchar>(i, j) = 255;
+			}
+			else {
+				if (img.at<uchar>(i, j) < 0) {
+					img.at<uchar>(i, j) = 0;
+				}
+			}
+		}
+	}
+	cv::imshow("add_neg", img);
+	cv::waitKey(0);
+}
+
+void multiplicative_negative() {
+	Mat img = imread("Images/kids.bmp", IMREAD_GRAYSCALE);
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			img.at<uchar>(i, j) *= 2;
+			if (img.at<uchar>(i, j) > 255) {
+				img.at <uchar>(i, j) = 255;
+			}
+			else {
+				if (img.at<uchar>(i, j) < 0) {
+					img.at<uchar>(i, j) = 0;
+				}
+			}
+		}
+	}
+	imwrite("Images/saved_multi.bmp", img);
+	cv::imshow("mult", img);
+	cv::waitKey(0);
+}
+
+void create_squares() {
+	Mat img(256, 256, CV_8UC3);
+	int half = 255 / 2;
+	Vec3b red = Vec3b(0, 0, 255);
+	Vec3b yellow = Vec3b(0, 255, 255);
+	Vec3b green = Vec3b(0, 255, 0);
+	Vec3b white = Vec3b(255, 255, 255);
+	// 012  = BGR
+	for (int i = 0; i < 255; i++) {
+		for (int j = 0; j < 255; j++) {
+			if (i <= half && j < half) { // stanga-sus
+				img.at<Vec3b>(i, j)[0] = 255;
+				img.at<Vec3b>(i, j)[1] = 255;
+				img.at<Vec3b>(i, j)[2] = 255;
+			}
+			else if (i <= half && j > half) { // dreapta sus
+				img.at<Vec3b>(i, j) = red;
+			}
+			else if (i >= half && j < half) { // stanga jos
+				img.at<Vec3b>(i, j) = green;
+			}
+			else { // dreapta jos
+				img.at<Vec3b>(i, j) = yellow;
+			}
+		}
+	}
+	cv::imshow("square", img);
+	cv::waitKey(0);
+}
+
+void color_to_3matrix(){
+	Mat img = imread("Images/kids.bmp", IMREAD_COLOR);
+	Mat blue(img.rows, img.cols, CV_8UC1);
+	Mat green(img.rows, img.cols, CV_8UC1);
+	Mat red(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			blue.at<uchar>(i, j) = img.at<Vec3b>(i, j)[0];
+			green.at<uchar>(i, j) = img.at<Vec3b>(i, j)[1];
+			red.at<uchar>(i, j) = img.at<Vec3b>(i, j)[2];
+		}
+	}
+	cv::imshow("image", img);
+	cv::imshow("blue", blue);
+	cv::imshow("green", green);
+	cv::imshow("red", red);
+	cv::waitKey(0);
+}
+
+void testNegativeImageFast()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat src = imread(fname, IMREAD_GRAYSCALE);
+		int height = src.rows;
+		int width = src.cols;
+		Mat dst = src.clone();
+
+		double t = (double)getTickCount(); // Get the current time [s]
+
+		// The fastest approach of accessing the pixels -> using pointers
+		uchar* lpSrc = src.data;
+		uchar* lpDst = dst.data;
+		int w = (int)src.step; // no dword alignment is done !!!
+		for (int i = 0; i < height; i++)
+			for (int j = 0; j < width; j++) {
+				uchar val = lpSrc[i * w + j];
+				lpDst[i * w + j] = 255 - val;
+			}
+
+		// Get the current time again and compute the time difference [s]
+		t = ((double)getTickCount() - t) / getTickFrequency();
+		// Print (in the console window) the processing time in [ms] 
+		printf("Time = %.3f [ms]\n", t * 1000);
+
+		cv::imshow("input image", src);
+		cv::imshow("negative image", dst);
+		cv::waitKey();
+	}
+}
+
+void testColor2Gray()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat src = imread(fname);
+
+		int height = src.rows;
+		int width = src.cols;
+
+		Mat dst = Mat(height, width, CV_8UC1);
+
+		// Accessing individual pixels in a RGB 24 bits/pixel image
+		// Inefficient way -> slow
+		for (int i = 0; i < height; i++)
+		{
+			for (int j = 0; j < width; j++)
+			{
+				Vec3b v3 = src.at<Vec3b>(i, j);
+				uchar b = v3[0];
+				uchar g = v3[1];
+				uchar r = v3[2];
+				dst.at<uchar>(i, j) = (r + g + b) / 3;
+			}
+		}
+
+		cv::imshow("input image", src);
+		cv::imshow("gray image", dst);
+		cv::waitKey();
+	}
+}
+
+void testBGR2HSV()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat src = imread(fname);
+		int height = src.rows;
+		int width = src.cols;
+
+		// HSV components
+		Mat H = Mat(height, width, CV_8UC1);
+		Mat S = Mat(height, width, CV_8UC1);
+		Mat V = Mat(height, width, CV_8UC1);
+
+		// Defining pointers to each matrix (8 bits/pixels) of the individual components H, S, V 
+		uchar* lpH = H.data;
+		uchar* lpS = S.data;
+		uchar* lpV = V.data;
+
+		Mat hsvImg;
+		cvtColor(src, hsvImg, COLOR_BGR2HSV);
+
+		// Defining the pointer to the HSV image matrix (24 bits/pixel)
+		uchar* hsvDataPtr = hsvImg.data;
+
+		for (int i = 0; i < height; i++)
+		{
+			for (int j = 0; j < width; j++)
+			{
+				int hi = i * width * 3 + j * 3;
+				int gi = i * width + j;
+
+				lpH[gi] = hsvDataPtr[hi] * 510 / 360;	// lpH = 0 .. 255
+				lpS[gi] = hsvDataPtr[hi + 1];			// lpS = 0 .. 255
+				lpV[gi] = hsvDataPtr[hi + 2];			// lpV = 0 .. 255
+			}
+		}
+
+		cv::imshow("input image", src);
+		cv::imshow("H", H);
+		cv::imshow("S", S);
+		cv::imshow("V", V);
+
+		cv::waitKey();
+	}
+}
+
+void testResize()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat src;
+		src = imread(fname);
+		Mat dst1, dst2;
+		//without interpolation
+		resizeImg(src, dst1, 320, false);
+		//with interpolation
+		resizeImg(src, dst2, 320, true);
+		cv::imshow("input image", src);
+		cv::imshow("resized image (without interpolation)", dst1);
+		cv::imshow("resized image (with interpolation)", dst2);
+		cv::waitKey();
+	}
+}
+
+void testCanny()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat src, dst, gauss;
+		src = imread(fname, IMREAD_GRAYSCALE);
+		double k = 0.4;
+		int pH = 50;
+		int pL = (int)k * pH;
+		GaussianBlur(src, gauss, Size(5, 5), 0.8, 0.8);
+		Canny(gauss, dst, pL, pH, 3);
+		cv::imshow("input image", src);
+		cv::imshow("canny", dst);
+		cv::waitKey();
+	}
+}
+
+void testVideoSequence()
+{
+	_wchdir(projectPath);
+
+	VideoCapture cap("Videos/rubic.avi"); // off-line video from file
+	//VideoCapture cap(0);	// live video from web cam
+	if (!cap.isOpened()) {
+		printf("Cannot open video capture device.\n");
+		cv::waitKey(0);
+		return;
+	}
+
+	Mat edges;
+	Mat frame;
+	char c;
+
+	while (cap.read(frame))
+	{
+		Mat grayFrame;
+		cvtColor(frame, grayFrame, COLOR_BGR2GRAY);
+		Canny(grayFrame, edges, 40, 100, 3);
+		cv::imshow("source", frame);
+		cv::imshow("gray", grayFrame);
+		cv::imshow("edges", edges);
+		c = waitKey(100);  // waits 100ms and advances to the next frame
+		if (c == 27) {
+			// press ESC to exit
+			printf("ESC pressed - capture finished\n");
+			break;  //ESC pressed
+		};
+	}
+}
+
+void testSnap()
+{
+	_wchdir(projectPath);
+
+	VideoCapture cap(0); // open the deafult camera (i.e. the built in web cam)
+	if (!cap.isOpened()) // opening the video device failed
+	{
+		printf("Cannot open video capture device.\n");
+		return;
+	}
+
+	Mat frame;
+	char numberStr[256];
+	char fileName[256];
+
+	// video resolution
+	Size capS = Size((int)cap.get(CAP_PROP_FRAME_WIDTH),
+		(int)cap.get(CAP_PROP_FRAME_HEIGHT));
+
+	// Display window
+	const char* WIN_SRC = "Src"; //window for the source frame
+	namedWindow(WIN_SRC, WINDOW_AUTOSIZE);
+	moveWindow(WIN_SRC, 0, 0);
+
+	const char* WIN_DST = "Snapped"; //window for showing the snapped frame
+	namedWindow(WIN_DST, WINDOW_AUTOSIZE);
+	moveWindow(WIN_DST, capS.width + 10, 0);
+
+	char c;
+	int frameNum = -1;
+	int frameCount = 0;
+
+	for (;;)
+	{
+		cap >> frame; // get a new frame from camera
+		if (frame.empty())
+		{
+			printf("End of the video file\n");
+			break;
+		}
+
+		++frameNum;
+
+		cv::imshow(WIN_SRC, frame);
+
+		c = waitKey(10);  // waits a key press to advance to the next frame
+		if (c == 27) {
+			// press ESC to exit
+			printf("ESC pressed - capture finished");
+			break;  //ESC pressed
+		}
+		if (c == 115) { //'s' pressed - snap the image to a file
+			frameCount++;
+			fileName[0] = NULL;
+			sprintf(numberStr, "%d", frameCount);
+			strcat(fileName, "Images/A");
+			strcat(fileName, numberStr);
+			strcat(fileName, ".bmp");
+			bool bSuccess = imwrite(fileName, frame);
+			if (!bSuccess)
+			{
+				printf("Error writing the snapped image\n");
+			}
+			else
+				cv::imshow(WIN_DST, frame);
+		}
+	}
+
+}
+
+void flipCamera()
+{
+	_wchdir(projectPath);
+
+	VideoCapture cap(0); // open the deafult camera (i.e. the built in web cam)
+	if (!cap.isOpened()) // opening the video device failed
+	{
+		printf("Cannot open video capture device.\n");
+		return;
+	}
+
+	Mat frame;
+	Mat flippedFrame;
+
+	// video resolution
+	Size capS = Size((int)cap.get(CAP_PROP_FRAME_WIDTH),
+		(int)cap.get(CAP_PROP_FRAME_HEIGHT));
+
+	// Display window
+	const char* WIN_SRC = "Src"; //window for the source frame
+	namedWindow(WIN_SRC, WINDOW_AUTOSIZE);
+	moveWindow(WIN_SRC, 0, 0);
+
+	const char* WIN_DST = "Flipped"; //window for showing the snapped frame
+	namedWindow(WIN_DST, WINDOW_AUTOSIZE);
+	moveWindow(WIN_DST, capS.width + 10, 0);
+
+	char c;
+
+	for (;;)
+	{
+		cap >> frame; // get a new frame from camera
+		cap >> flippedFrame;
+
+		if (frame.empty())
+		{
+			printf("End of the video file\n");
+			break;
+		}
+
+		for (int i = 0; i < frame.rows; i++) {
+			for (int j = 0; j < frame.cols; j++) {
+				flippedFrame.at<Vec3b>(i, j) = frame.at<Vec3b>(i, frame.cols - j - 1);
+				flippedFrame.at<Vec3b>(i, j)[1] += 50;
+			}
+		}
+
+		cv::imshow(WIN_SRC, frame);
+		cv::imshow(WIN_DST, flippedFrame);
+
+		c = waitKey(1);  // waits a key press to advance to the next frame
+		if (c == 27) {
+			// press ESC to exit
+			printf("ESC pressed - capture finished");
+			break;  //ESC pressed
+		}
+	}
+
+}
+
+void MyCallBackFunc(int event, int x, int y, int flags, void* param)
+{
+	//More examples: http://opencvexamples.blogspot.com/2014/01/detect-mouse-clicks-and-moves-on-image.html
+	Mat* src = (Mat*)param;
+	if (event == EVENT_LBUTTONDOWN)
+	{
+		printf("Pos(x,y): %d,%d  Color(RGB): %d,%d,%d\n",
+			x, y,
+			(int)(*src).at<Vec3b>(y, x)[2],
+			(int)(*src).at<Vec3b>(y, x)[1],
+			(int)(*src).at<Vec3b>(y, x)[0]);
+	}
+}
+
+void testMouseClick()
+{
+	Mat src;
+	// Read image from file 
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		src = imread(fname);
+		//Create a window
+		namedWindow("My Window", 1);
+
+		//set the callback function for any mouse event
+		setMouseCallback("My Window", MyCallBackFunc, &src);
+
+		//show the image
+		cv::imshow("My Window", src);
+
+		// Wait until user press some key
+		cv::waitKey(0);
+	}
+}
+
+
+
+
+
+// ______USED_BY_HELPERS______USED_BY_HELPERS_______USED_BY_HELPERS___________-----USED_BY_HELPERS--------USED_BY_HELPERS--------USED_BY_HELPERS----------USED_BY_HELPERS--------------_________HELPERS______________HELPERS____________HELPERS___________\\
+
+Mat binarizare_floyd_part2(std::vector<int> praguri, Mat img) {
+	Mat dst(img.rows, img.cols, CV_8UC1);
+	Mat dst_temp(img.rows, img.cols, CV_32FC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			dst_temp.at<float>(i, j) = img.at<uchar>(i, j);
+		}
+	}
+
+	float dist, minDist = 300;
+	float prag = 300.0;
+	for (int i = 0; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			prag = 0, minDist = 300;
+			for (int k = 0; k < praguri.size(); k++) {
+				dist = abs(dst_temp.at<float>(i, j) - praguri.at(k));
+				minDist = min(dist, minDist);
+				prag = (minDist == dist) ? praguri.at(k) : prag;
+				// err == minDist
+			}
+
+			minDist = dst_temp.at<float>(i, j) - prag;
+			dst_temp.at<float>(i, j) = prag;
+			dst.at<uchar>(i, j) = prag;
+			dst_temp.at<float>(i, j + 1) += (7.0 / 16 * minDist);
+			dst_temp.at<float>(i + 1, j) += (5.0 / 16 * minDist);
+			dst_temp.at<float>(i + 1, j - 1) += (3.0 / 16 * minDist);
+			dst_temp.at<float>(i + 1, j + 1) += (1.0 / 16 * minDist);
+		}
+	}
+	return dst;
+}
+Mat binarizare_multinivel_part2(std::vector<int> praguri, Mat img) {
+	Mat dst(img.rows, img.cols, CV_8UC1);
+
+	int dist, prag = 300, minDist = 300;
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			prag = 0, minDist = 300;
+			for (int k = 0; k < praguri.size(); k++) {
+				dist = abs(img.at<uchar>(i, j) - praguri.at(k));
+				minDist = min(dist, minDist);
+				prag = (minDist == dist) ? praguri.at(k) : prag;
+			}
+			dst.at<uchar>(i, j) = prag;
+		}
+	}
+	return dst;
+}
+/* 
+Histogram display function - display a histogram using bars (simlilar to L3 / Image Processing)
+Input:
+name - destination (output) window name
+hist - pointer to the vector containing the histogram values
+hist_cols - no. of bins (elements) in the histogram = histogram image width
+hist_height - height of the histogram image
+Call example:
+showHistogram ("MyHist", hist_dir, 255, 200);
+*/
+Mat showHistogram(const std::string& name, int* hist, const int  hist_cols, const int hist_height)
+{
+	Mat imgHist(hist_height, hist_cols, CV_8UC3, CV_RGB(255, 255, 255)); // constructs a white image
+
+	//computes histogram maximum
+	int max_hist = 0;
+	for (int i = 0; i < hist_cols; i++)
+		if (hist[i] > max_hist)
+			max_hist = hist[i];
+	double scale = 1.0;
+	scale = (double)hist_height / max_hist;
+	int baseline = hist_height - 1;
+
+	for (int x = 0; x < hist_cols; x++) {
+		Point p1 = Point(x, baseline);
+		Point p2 = Point(x, baseline - cvRound(hist[x] * scale));
+		line(imgHist, p1, p2, CV_RGB(255, 0, 255)); // histogram bins colored in magenta
+	}
+	return imgHist;
+}
+
+// _______HELPERS_____________HELPERS___________HELPERS___________-----HELPERS----------------HELPERS----------HELPERS------------HELPERS--------------_________HELPERS______________HELPERS____________HELPERS___________\\
+
+Mat flip_vertical_grayscale(Mat img) {
+	Mat flipped = Mat(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			flipped.at<uchar>(i, j) = img.at<uchar>(i, img.cols - j - 1);
+		}
+	}
+	return flipped;
+}
+
+Mat flip_vertical_color(Mat img) {
+	Mat flipped = Mat(img.rows, img.cols, CV_8UC3);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			flipped.at<Vec3b>(i, j) = img.at<Vec3b>(i, img.cols - j - 1);
+		}
+	}
+	return flipped;
+}
+
+Mat flip_horizontal_grayscale(Mat img) {
+	Mat flipped = Mat(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			flipped.at<uchar>(i, j) = img.at<uchar>(img.rows - 1 - i, j);
+		}
+	}
+	return flipped;
+}
+
+Mat flip_horizontal_color(Mat img) {
+	Mat flipped = Mat(img.rows, img.cols, CV_8UC3);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			flipped.at<Vec3b>(i, j) = img.at<Vec3b>(img.rows - 1 - i, j);
+		}
+	}
+	return flipped; 
+}
+
+Mat colors_to_grey_arithmetic(Mat img) {
+	Mat gray(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			gray.at<uchar>(i, j) = (img.at<Vec3b>(i, j)[0] + img.at<Vec3b>(i, j)[1] + img.at<Vec3b>(i, j)[2]) / 3;
+		}
+	}
+	return gray;
+}
+
+Mat colors_to_grey_geometric(Mat img) {
+	Mat gray(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			gray.at<uchar>(i, j) = (0.11 * img.at<Vec3b>(i, j)[0]) +
+								   (0.58 * img.at<Vec3b>(i, j)[1]) + 
+								   (0.29 * img.at<Vec3b>(i, j)[2]);
+		}
+	}
+	return gray;
+}
+
+Mat binary_with_treshold(Mat src, uchar prag) {
+	Mat BW(src.rows, src.cols, CV_8UC1);
+
+	for (int i = 0; i < src.rows; i++) {
+		for (int j = 0; j < src.cols; j++) {
+			uchar x = src.at<uchar>(i, j);
+			BW.at<uchar>(i, j) = (x > prag) ? 255 : 0;
+		}
+	}
+
+	return BW;
+}
+
+Mat get_hue_from_RGB(Mat img) {
+	Mat dst(img.rows, img.cols, CV_8UC3);
+	Mat hue(img.rows, img.cols, CV_8UC1);
+	Mat saturation(img.rows, img.cols, CV_8UC1);
+	Mat values(img.rows, img.cols, CV_8UC1);
+
+	float C, M, m;
+	float b, g, r;
+	float H, S, V;
+	uchar H_norm, S_norm, V_norm;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			b = (float)img.at<Vec3b>(i, j)[0] / 255;
+			g = (float)img.at<Vec3b>(i, j)[1] / 255;
+			r = (float)img.at<Vec3b>(i, j)[2] / 255;
+			M = max(max(b, g), r);
+			m = min(min(b, g), r);
+			C = M - m;
+			V = M;
+			S = (V != 0) ? (C / V) : 0;
+			if (C != 0) {
+				if (M == r) H = 60 * (g - b) / C;
+				else if (M == g) H = 120 + 60 * (b - r) / C;
+				else if (M == b) H = 240 + 60 * (r - g) / C;
+			}
+			else H = 0;
+			if (H < 0) H = H + 360;
+
+			H_norm = H * 255 / 360;
+			S_norm = S * 255;
+			V_norm = V * 255;
+
+			hue.at<uchar>(i, j) = H_norm;
+			saturation.at<uchar>(i, j) = S_norm;
+			values.at<uchar>(i, j) = V_norm;
+			dst.at<Vec3b>(i, j)[0] = H_norm;
+			dst.at<Vec3b>(i, j)[1] = S_norm;
+			dst.at<Vec3b>(i, j)[2] = V_norm;
+		}
+	}
+
+	return hue;
+}
+
+Mat get_saturation_from_RGB(Mat img) {
+	Mat dst(img.rows, img.cols, CV_8UC3);
+	Mat hue(img.rows, img.cols, CV_8UC1);
+	Mat saturation(img.rows, img.cols, CV_8UC1);
+	Mat values(img.rows, img.cols, CV_8UC1);
+
+	float C, M, m;
+	float b, g, r;
+	float H, S, V;
+	uchar H_norm, S_norm, V_norm;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			b = (float)img.at<Vec3b>(i, j)[0] / 255;
+			g = (float)img.at<Vec3b>(i, j)[1] / 255;
+			r = (float)img.at<Vec3b>(i, j)[2] / 255;
+			M = max(max(b, g), r);
+			m = min(min(b, g), r);
+			C = M - m;
+			V = M;
+			S = (V != 0) ? (C / V) : 0;
+			if (C != 0) {
+				if (M == r) H = 60 * (g - b) / C;
+				else if (M == g) H = 120 + 60 * (b - r) / C;
+				else if (M == b) H = 240 + 60 * (r - g) / C;
+			}
+			else H = 0;
+			if (H < 0) H = H + 360;
+
+			H_norm = H * 255 / 360;
+			S_norm = S * 255;
+			V_norm = V * 255;
+
+			hue.at<uchar>(i, j) = H_norm;
+			saturation.at<uchar>(i, j) = S_norm;
+			values.at<uchar>(i, j) = V_norm;
+			dst.at<Vec3b>(i, j)[0] = H_norm;
+			dst.at<Vec3b>(i, j)[1] = S_norm;
+			dst.at<Vec3b>(i, j)[2] = V_norm;
+		}
+	}
+
+	return saturation;
+}
+
+Mat get_values_from_RGB(Mat img) {
+	Mat dst(img.rows, img.cols, CV_8UC3);
+	Mat hue(img.rows, img.cols, CV_8UC1);
+	Mat saturation(img.rows, img.cols, CV_8UC1);
+	Mat values(img.rows, img.cols, CV_8UC1);
+
+	float C, M, m;
+	float b, g, r;
+	float H, S, V;
+	uchar H_norm, S_norm, V_norm;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			b = (float)img.at<Vec3b>(i, j)[0] / 255;
+			g = (float)img.at<Vec3b>(i, j)[1] / 255;
+			r = (float)img.at<Vec3b>(i, j)[2] / 255;
+			M = max(max(b, g), r);
+			m = min(min(b, g), r);
+			C = M - m;
+			V = M;
+			S = (V != 0) ? (C / V) : 0;
+			if (C != 0) {
+				if (M == r) H = 60 * (g - b) / C;
+				else if (M == g) H = 120 + 60 * (b - r) / C;
+				else if (M == b) H = 240 + 60 * (r - g) / C;
+			}
+			else H = 0;
+			if (H < 0) H = H + 360;
+
+			H_norm = H * 255 / 360;
+			S_norm = S * 255;
+			V_norm = V * 255;
+
+			hue.at<uchar>(i, j) = H_norm;
+			saturation.at<uchar>(i, j) = S_norm;
+			values.at<uchar>(i, j) = V_norm;
+			dst.at<Vec3b>(i, j)[0] = H_norm;
+			dst.at<Vec3b>(i, j)[1] = S_norm;
+			dst.at<Vec3b>(i, j)[2] = V_norm;
+		}
+	}
+
+	return values;
+}
+
+Mat get_HSV_from_RGB(Mat img) {
+	Mat dst(img.rows, img.cols, CV_8UC3);
+	Mat hue(img.rows, img.cols, CV_8UC1);
+	Mat saturation(img.rows, img.cols, CV_8UC1);
+	Mat values(img.rows, img.cols, CV_8UC1);
+
+	float C, M, m;
+	float b, g, r;
+	float H, S, V;
+	uchar H_norm, S_norm, V_norm;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			b = (float)img.at<Vec3b>(i, j)[0] / 255;
+			g = (float)img.at<Vec3b>(i, j)[1] / 255;
+			r = (float)img.at<Vec3b>(i, j)[2] / 255;
+			M = max(max(b, g), r);
+			m = min(min(b, g), r);
+			C = M - m;
+			V = M;
+			S = (V != 0) ? (C / V) : 0;
+			if (C != 0) {
+				if (M == r) H = 60 * (g - b) / C;
+				else if (M == g) H = 120 + 60 * (b - r) / C;
+				else if (M == b) H = 240 + 60 * (r - g) / C;
+			}
+			else H = 0;
+			if (H < 0) H = H + 360;
+
+			H_norm = H * 255 / 360;
+			S_norm = S * 255;
+			V_norm = V * 255;
+
+			hue.at<uchar>(i, j) = H_norm;
+			saturation.at<uchar>(i, j) = S_norm;
+			values.at<uchar>(i, j) = V_norm;
+			dst.at<Vec3b>(i, j)[0] = H_norm;
+			dst.at<Vec3b>(i, j)[1] = S_norm;
+			dst.at<Vec3b>(i, j)[2] = V_norm;
+		}
+	}
+
+	return dst;
+}
+
+int arie(Mat img) {
+	int ariex = 0;
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			ariex += (img.at<uchar>(i, j) == 0) ? 1 : 0;
+		}
+	}
+	return ariex;
+}
+
+Point2i centru_masa(Mat img) {
+	int arie = 0;
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			arie += (img.at<uchar>(i, j) == 0) ? 1 : 0;
+		}
+	}
+
+	int row, col;
+	int ri = 0, ci = 0;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0) {
+				ri += i;
+				ci += j;
+			}
+		}
+	}
+	row = ri / arie;
+	col = ci / arie;
+
+	return Point2i(row, col);
+}
+
+int perimetru(Mat img) {
+	int per = 0;
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			if (img.at<uchar>(i, j) == 0) {
+				if (img.at<uchar>(i - 1, j) == 255) {
+					per++;
+				}
+				else if (img.at<uchar>(i + 1, j) == 255) {
+					per++;
+				}
+				else if (img.at<uchar>(i, j - 1) == 255) {
+					per++;
+				}
+				else if (img.at<uchar>(i, j + 1) == 255) {
+					per++;
+				}
+				else if (img.at<uchar>(i - 1, j + 1) == 255) {
+					per++;
+				}
+				else if (img.at<uchar>(i - 1, j - 1) == 255) {
+					per++;
+				}
+				else if (img.at<uchar>(i + 1, j + 1) == 255) {
+					per++;
+				}
+				else if (img.at<uchar>(i + 1, j - 1) == 255) {
+					per++;
+				}
+
+			}
+		}
+	}
+	return per;
+}
+
+float factor_subtiere(Mat img) {
+	float ar = arie(img);
+	float per = perimetru(img);
+
+	float fs = 4.0 * PI * ((float)ar / (float)(per * per));
+	return fs;
+}
+
+float aspect_ratio(Mat img) {
+	float ar;
+	float cmax = 0, cmin = img.cols;
+	float rmax = 0, rmin = img.rows;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0) {
+				cmax = max(cmax, j);
+				cmin = min(cmin, j);
+				rmax = max(rmax, i);
+				rmin = min(rmin, i);
+			}
+		}
+	}
+
+	ar = (cmax - cmin + 1) / (rmax - rmin + 1);
+	return ar;
+}
+
+Mat vertical_projection(Mat img) {
+	int* pixeli_per_row = (int*)calloc(img.rows, sizeof(int));
+	int* pixeli_per_col = (int*)calloc(img.cols, sizeof(int));
+
+	Mat verticalProj = Mat(img.rows, img.cols, CV_8UC1);
+	verticalProj.setTo(255);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0) {
+				pixeli_per_col[i]++;
+				pixeli_per_row[j]++;
+			}
+		}
+	}
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < pixeli_per_row[i]; j++) {
+			verticalProj.at<uchar>(j, i) = 0;
+		}
+	}
+
+	return verticalProj;
+}
+
+Mat horizontal_projection(Mat img) {
+	int* pixeli_per_row = (int*)calloc(img.rows, sizeof(int));
+	int* pixeli_per_col = (int*)calloc(img.cols, sizeof(int));
+
+	Mat horizontalProj = Mat(img.rows, img.cols, CV_8UC1);
+	horizontalProj.setTo(255);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0) {
+				pixeli_per_col[i]++;
+				pixeli_per_row[j]++;
+			}
+		}
+	}
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < pixeli_per_col[i]; j++) {
+			horizontalProj.at<uchar>(i, j) = 0;
+		}
+	}
+
+	return horizontalProj;
+}
+
+Mat object_detection(Mat img) {
+	Mat labels = Mat(img.rows, img.cols, CV_32SC1);
+	labels.setTo(0);
+	int nrLabels = 0;
+	int di[] = { -1, -1, -1, 0, 0, 0, 1, 1, 1 };
+	int dj[] = { -1, 0, 1, -1, 0, 1, -1, 0, 1 };
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0 && labels.at<int>(i, j) == 0) {
+				nrLabels++;
+				labels.at<int>(i, j) = nrLabels;
+				std::queue<Point2i> q;
+				q.push({ i, j });
+				while (!q.empty()) {
+					Point2i p = q.front();
+					q.pop();
+					for (int k = 0; k < 9; k++) {
+						int ii = p.x + di[k];
+						int jj = p.y + dj[k];
+						if (ii > 0 && jj > 0 && ii < img.rows && jj < img.cols) {
+							if (img.at<uchar>(ii, jj) == 0 && labels.at<int>(ii, jj) == 0) {
+								q.push({ ii, jj });
+								labels.at<int>(ii, jj) = nrLabels;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	std::default_random_engine generate;
+	std::uniform_int_distribution<int> d(0, 255);
+
+	std::vector<Vec3b> colors;
+	colors.push_back(Vec3b(255, 255, 255));
+	for (int k = 0; k <= nrLabels; k++) {
+		Vec3b culoare;
+		culoare[0] = d(generate);
+		culoare[1] = d(generate);
+		culoare[2] = d(generate);
+		colors.push_back(culoare);
+	}
+
+	Mat dst = Mat(img.rows, img.cols, CV_8UC3);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			dst.at<Vec3b>(i, j) = colors[labels.at<int>(i, j)];
+		}
+	}
+	std::cout << "nrLabels = " << nrLabels;
+	return dst;
+}
+
+int labels_from_object_detection(Mat img) {
+	Mat labels = Mat(img.rows, img.cols, CV_32SC1);
+	labels.setTo(0);
+	int nrLabels = 0;
+	int di[] = { -1, -1, -1, 0, 0, 0, 1, 1, 1 };
+	int dj[] = { -1, 0, 1, -1, 0, 1, -1, 0, 1 };
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0 && labels.at<int>(i, j) == 0) {
+				nrLabels++;
+				labels.at<int>(i, j) = nrLabels;
+				std::queue<Point2i> q;
+				q.push({ i, j });
+				while (!q.empty()) {
+					Point2i p = q.front();
+					q.pop();
+					for (int k = 0; k < 9; k++) {
+						int ii = p.x + di[k];
+						int jj = p.y + dj[k];
+						if (ii > 0 && jj > 0 && ii < img.rows && jj < img.cols) {
+							if (img.at<uchar>(ii, jj) == 0 && labels.at<int>(ii, jj) == 0) {
+								q.push({ ii, jj });
+								labels.at<int>(ii, jj) = nrLabels;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nrLabels;
+}
+
+Mat get_border(Mat img) {
+	Mat dst = Mat(img.rows, img.cols, CV_8UC3, cv::Scalar(255, 255, 255));
+	std::vector<cv::Point> contour;
+	std::vector<int> dir;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0 && contour.size() == 0) {
+				contour.push_back(Point(j, i));  // col, row
+				dir.push_back(7);
+				break;
+			}
+		}
+		if (contour.size() != 0)
+			break;
+	}
+	int pointDir;
+	int dx[] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+	int dy[] = { 0, 1, 1, 1, 0, -1, -1, -1 };
+
+	do {
+		pointDir = dir.back();
+		pointDir = (pointDir % 2 == 0) ? (pointDir + 7) % 8 : (pointDir + 6) % 8;
+
+		do {
+			cv::Point check = contour.back();
+			check.x += dx[pointDir];
+			check.y += dy[pointDir];
+			if (img.at<uchar>(check.y, check.x) == 0) {
+				contour.push_back(check);
+				dir.push_back(pointDir);
+				break;
+			}
+			else {
+				pointDir = (pointDir + 1) % 8;
+			}
+		} while (true);
+
+	} while (
+		!(contour[contour.size() - 1] == contour[1] && contour[contour.size() - 2] == contour[0])
+		|| contour.size() < 10
+		);
+
+
+	for (int i = 0; i < contour.size(); i++) {
+		dst.at<Vec3b>(contour[i].y, contour[i].x) = cv::Vec3b(255, 0, 0);
+	}
+
+	std::vector<int> derivata;
+	for (int i = 0; i < dir.size() - 2; i++) {
+		if (dir[i + 1] > dir[i]) {
+			derivata.push_back(dir[i + 1] - dir[i]);
+		}
+		else if (dir[i + 1] < dir[i]) {
+			derivata.push_back(8 - abs(dir[i] - dir[i + 1]));
+		}
+		else derivata.push_back(0);
+	}
+
+	for (int i = 0; i < dir.size() - 2; i++) {
+		std::cout << "dir = " << dir[i] << " si " << dir[i + 1];
+		std::cout << std::endl;
+		std::cout << "deriv = " << derivata[i];
+		std::cout << std::endl << std::endl;
+	}
+	return dst;
+}
+
+std::vector<int> get_derivata(Mat img) {
+	Mat dst = Mat(img.rows, img.cols, CV_8UC3, cv::Scalar(255, 255, 255));
+	std::vector<cv::Point> contour;
+	std::vector<int> dir;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0 && contour.size() == 0) {
+				contour.push_back(Point(j, i));  // col, row
+				dir.push_back(7);
+				break;
+			}
+		}
+		if (contour.size() != 0)
+			break;
+	}
+	int pointDir;
+	int dx[] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+	int dy[] = { 0, 1, 1, 1, 0, -1, -1, -1 };
+
+	do {
+		pointDir = dir.back();
+		pointDir = (pointDir % 2 == 0) ? (pointDir + 7) % 8 : (pointDir + 6) % 8;
+
+		do {
+			cv::Point check = contour.back();
+			check.x += dx[pointDir];
+			check.y += dy[pointDir];
+			if (img.at<uchar>(check.y, check.x) == 0) {
+				contour.push_back(check);
+				dir.push_back(pointDir);
+				break;
+			}
+			else {
+				pointDir = (pointDir + 1) % 8;
+			}
+		} while (true);
+
+	} while (
+		!(contour[contour.size() - 1] == contour[1] && contour[contour.size() - 2] == contour[0])
+		|| contour.size() < 10
+		);
+
+
+	for (int i = 0; i < contour.size(); i++) {
+		dst.at<Vec3b>(contour[i].y, contour[i].x) = cv::Vec3b(255, 0, 0);
+	}
+
+	std::vector<int> derivata;
+	for (int i = 0; i < dir.size() - 2; i++) {
+		if (dir[i + 1] > dir[i]) {
+			derivata.push_back(dir[i + 1] - dir[i]);
+		}
+		else if (dir[i + 1] < dir[i]) {
+			derivata.push_back(8 - abs(dir[i] - dir[i + 1]));
+		}
+		else derivata.push_back(0);
+	}
+
+	return derivata;
+}
+
+Mat construct_border_from_dir_vector(FILE* f) {
+	int x, y;
+	int size;
+	std::vector<int> dirs;
+	fscanf(f, "%d %d", &x, &y);
+	fscanf(f, "%d", &size);
+	for (int i = 0; i < size; i++) {
+		int x;
+		fscanf(f, "%d", &x);
+		dirs.emplace_back(x);
+	}
+	fclose(f);
+	int di[] = { 0, -1, -1, -1, 0, 1, 1, 1 };
+	int dj[] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+	Mat img = Mat(300, 700, CV_8UC1);
+	img.setTo(0);
+	img.at<uchar>(x, y) = 0;
+	for (auto it : dirs) {
+		x += di[it];
+		y += dj[it];
+		// cout<<x<<' '<<y<<'\n';
+		img.at<uchar>(x, y) = 255;
+	}
+	return img;
+}
+
+Mat dilatare(Mat img) {
+	int di[] = { 0, -1, 0, +1, -1, -1, +1, +1 };
+	int dj[] = { +1, 0, -1, 0, +1, -1, -1, +1 };
+
+	Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+	dst = img.clone();
+
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			if (img.at<uchar>(i, j) == 0)
+			{
+				for (int k = 0; k < 8; k++) {
+					int ii = di[k] + i;
+					int jj = dj[k] + j;
+					dst.at<uchar>(ii, jj) = 0;
+				}
+			}
+		}
+	}
+	return dst;
+}
+
+Mat eroziune(Mat img) {
+	int di[] = { 0, -1, 0, +1, -1, -1, +1, +1 };
+	int dj[] = { +1, 0, -1, 0, +1, -1, -1, +1 };
+
+	Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+	dst = img.clone();
+
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			if (img.at<uchar>(i, j) == 0)
+			{
+				for (int k = 0; k < 8; k++) {
+					int ii = di[k] + i;
+					int jj = dj[k] + j;
+					if (img.at<uchar>(ii, jj) > 0) {
+						dst.at<uchar>(i, j) = 255;
+						break;
+					}
+				}
+			}
+
+		}
+	}
+	return dst;
+}
+
+Mat deschidere(Mat img) {
+	Mat deschide = eroziune(img);
+	Mat erozi = dilatare(deschide);
+	return erozi;
+}
+
+Mat inchidere(Mat img) {
+	Mat deschide = dilatare(img);
+	Mat erozi = eroziune(deschide);
+	return erozi;
+}
+
+Mat extragere_contur(Mat img) {
+	Mat eroded = eroziune(img);
+	Mat contur = Mat(img.rows, img.cols, CV_8UC1);
+	contur.setTo(255);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0 && eroded.at<uchar>(i, j) == 255) {
+				contur.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+	return contur;
+}
+
+bool verifica_egalitate_matrici(Mat img1, Mat img2) {
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			if (img1.at<uchar>(i, j) != img2.at<uchar>(i, j)) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+Mat intersectie_pentru_fill(Mat dilatat, Mat complement) {
+	for (int i = 0; i < dilatat.rows; i++) {
+		for (int j = 0; j < dilatat.cols; j++) {
+			if (complement.at<uchar>(i, j) == 255 && dilatat.at<uchar>(i, j) == 0) {
+				dilatat.at<uchar>(i, j) = 255;
+			}
+		}
+	}
+	return dilatat;
+}
+
+Mat test_intersectie_pentru_fill(Mat dilatat, Mat complement) {
+	for (int i = 0; i < dilatat.rows; i++) {
+		for (int j = 0; j < dilatat.cols; j++) {
+			if (complement.at<uchar>(i, j) == 0 && dilatat.at<uchar>(i, j) == 0) {
+				dilatat.at<uchar>(i, j) = 255;
+			}
+		}
+	}
+	return dilatat;
+}
+
+Mat fill_shape_from_point(Mat img, Point2i punctStart) {
+	Mat imgCompl = Mat(img.rows, img.cols, CV_8UC1);
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			imgCompl.at<uchar>(i, j) = (img.at<uchar>(i, j) == 0) ? 255 : 0;
+		}
+	}
+
+	Mat dilatat = Mat(img.rows, img.cols, CV_8UC1);
+
+	Mat mk1 = Mat(img.rows, img.cols, CV_8UC1);
+	mk1.setTo(255);
+	mk1.at<uchar>(punctStart.x, punctStart.y) = 0;
+
+	bool matrici_egale = false;
+
+	for (int i = 0; i < img.rows && matrici_egale == false; i++) {
+		for (int j = 0; j < img.cols && matrici_egale == false; j++) {
+			dilatat = dilatare(mk1);
+			dilatat = intersectie_pentru_fill(dilatat, imgCompl);
+			matrici_egale = verifica_egalitate_matrici(dilatat, mk1);
+			mk1 = dilatat;
+		}
+	}
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0 && mk1.at<uchar>(i, j) == 255) {
+				mk1.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	return dilatat;
+}
+
+Mat histogram(Mat img) {
+
+	int* hist = (int*)calloc(256, sizeof(int));
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			hist[(int)img.at<uchar>(i, j)]++;
+		}
+	}
+
+	float FDP[256];
+	for (int i = 0; i < 256; i++) {
+		FDP[i] = (float)hist[i] / (img.rows * img.cols);
+	}
+
+	Mat fin = showHistogram("histogram", hist, 256, img.rows);
+	return fin;
+}
+
+Mat binarizare_floyd(Mat img) {
+	int* hist = (int*)calloc(256, sizeof(int));
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			hist[(int)img.at<uchar>(i, j)]++;
+		}
+	}
+
+	float FDP[256];
+	for (int i = 0; i < 256; i++) {
+		FDP[i] = (float)hist[i] / (img.rows * img.cols);
+	}
+
+	std::vector<int>praguri;
+	praguri.push_back(0);
+
+	int w = 5;
+	float media = 0.0;
+	float threshold = 0.0003;
+	for (int i = w / 2; i < 256 - (w / 2); i++) {
+		media = 0.0;
+		float maxim = -1;
+		for (int j = i - (w / 2); j < i + (w / 2) + 1; j++) {
+			media += FDP[j];
+			maxim = max(maxim, FDP[j]);
+		}
+		media /= w;
+		if (FDP[i] > (media + threshold) && FDP[i] >= maxim) {
+			praguri.push_back(i);
+		}
+	}
+	praguri.push_back(255);
+
+	Mat fin = binarizare_floyd_part2(praguri, img);
+	return fin;
+	//binarizare_multinivel(praguri, img);
+}
+
+Mat binarizare_multinivel(Mat img) {
+	int* hist = (int*)calloc(256, sizeof(int));
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			hist[(int)img.at<uchar>(i, j)]++;
+		}
+	}
+
+	float FDP[256];
+	for (int i = 0; i < 256; i++) {
+		FDP[i] = (float)hist[i] / (img.rows * img.cols);
+	}
+
+	std::vector<int>praguri;
+	praguri.push_back(0);
+
+	int w = 5;
+	float media = 0.0;
+	float threshold = 0.0003;
+	for (int i = w / 2; i < 256 - (w / 2); i++) {
+		media = 0.0;
+		float maxim = -1;
+		for (int j = i - (w / 2); j < i + (w / 2) + 1; j++) {
+			media += FDP[j];
+			maxim = max(maxim, FDP[j]);
+		}
+		media /= w;
+		if (FDP[i] > (media + threshold) && FDP[i] >= maxim) {
+			praguri.push_back(i);
+		}
+	}
+	praguri.push_back(255);
+	Mat fin = binarizare_multinivel_part2(praguri, img);
+	return fin;
+}
+
+std::vector<int> get_praguri(Mat img) {
+	int* hist = (int*)calloc(256, sizeof(int));
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			hist[(int)img.at<uchar>(i, j)]++;
+		}
+	}
+
+	float FDP[256];
+	for (int i = 0; i < 256; i++) {
+		FDP[i] = (float)hist[i] / (img.rows * img.cols);
+	}
+
+	std::vector<int>praguri;
+	praguri.push_back(0);
+
+	int w = 5;
+	float media = 0.0;
+	float threshold = 0.0003;
+	for (int i = w / 2; i < 256 - (w / 2); i++) {
+		media = 0.0;
+		float maxim = -1;
+		for (int j = i - (w / 2); j < i + (w / 2) + 1; j++) {
+			media += FDP[j];
+			maxim = max(maxim, FDP[j]);
+		}
+		media /= w;
+		if (FDP[i] > (media + threshold) && FDP[i] >= maxim) {
+			praguri.push_back(i);
+		}
+	}
+	praguri.push_back(255);
+
+	return praguri;
+}
+
+int medie_valori(Mat img) {
+	long int sum = 0;
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			sum += img.at<uchar>(i, j);
+		}
+	}
+	return sum / (img.rows * img.cols);
+}
+
+int standard_deviation(Mat img) {
+	long int sum = 0;
+	int m = img.rows * img.cols;
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			sum += (img.at<uchar>(i, j) - m);
+		}
+	}
+	return sqrt(sum / m);
+}
+
+Mat automatic_binary(Mat img, int T, int Err) {
+	int T1;
+	do {
+		int m1 = 0;
+		int m2 = 0;
+		long int count1 = 0, count2 = 0;
+		for (int i = 0; i < img.rows; i++) {
+			for (int j = 0; j < img.cols; j++) {
+				if (img.at<uchar>(i, j) < T) {
+					m1 += img.at<uchar>(i, j);
+					count1++;
+				}
+				else {
+					m2 += img.at<uchar>(i, j);
+					count2++;
+				}
+			}
+		}
+		m1 /= count1;
+		m2 /= count2;
+		T1 = (m1 + m2) / 2;
+	} while (T1 - T > Err);
+
+	Mat copy = Mat(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			copy.at<uchar>(i, j) = (img.at<uchar>(i, j) > T1) ? 255 : 0;
+		}
+	}
+	return copy;
+}
+
+Mat contrast(Mat img, int gout_min, int gout_max, int gin_min, int gin_max) {
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			gin_min = min(gin_min, img.at<uchar>(i, j));
+			gin_max = max(gin_max, img.at<uchar>(i, j));
+		}
+	}
+
+	Mat dst = img.clone();
+
+	int gout = gout_max - gout_min;
+	int gin = gin_max - gin_min;
+	if (gin == 0) {
+		gin = 1;
+	}
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			dst.at<uchar>(i, j) = gout_min + ((float)((float)(img.at<uchar>(i, j) - gin_min) / gin) * gout);
+		}
+	}
+	return dst;
+}
+
+
+Mat gamma(Mat img, float v) {
+	Mat dst = img.clone();
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			dst.at<uchar>(i, j) = 255 * (pow((float)(img.at<uchar>(i, j) / 255.0), v));
+		}
+	}
+
+	return dst;
+}
+
+Mat egalizare_histograma(Mat img) {
+	int* hist = (int*)calloc(256, sizeof(int));
+	float* hist_cumulat = (float*)calloc(256, sizeof(float));
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			hist[(int)img.at<uchar>(i, j)]++;
+		}
+	}
+
+	for (int i = 0; i < 256; i++) {
+		long long int s = 0;
+		for (int k = 0; k <= i; k++) {
+			s += hist[k];
+		}
+		hist_cumulat[i] = (float) s / (img.rows * img.cols);
+	}
+
+	Mat dst = img.clone();
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			dst.at<uchar>(i, j) = (float)255 * hist_cumulat[(int)img.at<uchar>(i,j)];
+		}
+	}
+
+	Mat his12t = showHistogram("hist", hist, 256, 256);
+	Mat hist_cum = showHistogram("histcum", (int*)hist_cumulat, 256, 256);
+
+	/*imshow("his12t", his12t);
+	imshow("hist_cum", hist_cum);*/
+	return dst;
+}
+
+void lab45() {
+	Mat x = imread("Images/cameraman.bmp", IMREAD_GRAYSCALE);
+	int std_deev = standard_deviation(x);
+	int medie = medie_valori(x);
+	Mat asd = automatic_binary(x, 128, 30);
+	printf("standard deviation = %d\nmedia valorilor = %d\n", std_deev, medie);
+
+	Mat gmma = gamma(x, 2);
+	Mat cntrst = contrast(x, 50, 200, 256, -1);
+	Mat sae = egalizare_histograma(x);
+	imshow("asd", asd);
+	imshow("sae", sae);
+	imshow("cntrst", cntrst);
+	imshow("gmma", gmma);
+	imshow("x", x);
+	cv::waitKey(0);
+}
+
+Mat filtru_trece_jos(Mat img, int values[]) {
+	int di[] = { 0, -1, -1, -1, +0, +1, +1, 1, 0 };
+	int dj[] = { 1, +1, +0, -1, -1, -1, +0, 1, 0 };
+	Mat copy = img.clone();
+	int sum = 0;
+	for (int i = 0; i < 9; i++) {
+		sum += values[i];
+	}
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			int val = 0;
+			for (int k = 0; k < 9; k++) {
+				int ii = di[k] + i;
+				int jj = dj[k] + j;
+				val += img.at<uchar>(ii, jj) * values[k];
+			}
+			copy.at<uchar>(i, j) = val / sum;
+		}
+	}
+	return copy;
+}
+
+Mat contrast_cu_mat_int(Mat img, int gout_min, int gout_max, int gin_min, int gin_max) {
+	Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+	int gout = gout_max - gout_min;
+	int gin = gin_max - gin_min;
+	if (gin == 0) {
+		gin = 1;
+	}
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			dst.at<uchar>(i, j) = gout_min + ((float)((float)(img.at<int>(i, j) - gin_min) / gin) * gout);
+		}
+	}
+	return dst;
+}
+
+
+Mat filtru_trece_sus(Mat img, int values[]) {
+	int di[] = { 0, -1, -1, -1, +0, +1, +1, +1, 0 };
+	int dj[] = { 1, +1, +0, -1, -1, -1, +0, +1, 0 };
+	Mat copy = img.clone();
+	Mat interm = Mat::zeros(img.rows, img.cols, CV_32SC1);
+
+	int min_val = 256;
+	int max_val = -1;
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			int val = 0;
+			for (int k = 0; k < 9; k++) {
+				int ii = di[k] + i;
+				int jj = dj[k] + j;
+				int value = values[k];
+				val += img.at<uchar>(ii, jj) * value;
+			}
+			min_val = min(min_val, val);
+			max_val = max(max_val, val);
+			interm.at<int>(i, j) = val;
+		}
+	}
+
+	Mat fin = contrast_cu_mat_int(interm, 0, 255, min_val, max_val);
+
+	return fin;
+}
+
+Mat filtru_trece_sus_matrice_int(Mat img, int values[]) {
+	int di[] = { 0, -1, -1, -1, +0, +1, +1, +1, 0 };
+	int dj[] = { 1, +1, +0, -1, -1, -1, +0, +1, 0 };
+	Mat copy = img.clone();
+	Mat interm = Mat::zeros(img.rows, img.cols, CV_32SC1);
+
+	int min_val = 256;
+	int max_val = -1;
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			int val = 0;
+			for (int k = 0; k < 9; k++) {
+				int ii = di[k] + i;
+				int jj = dj[k] + j;
+				int value = values[k];
+				val += img.at<uchar>(ii, jj) * value;
+			}
+			min_val = min(min_val, val);
+			max_val = max(max_val, val);
+			interm.at<int>(i, j) = val;
+		}
+	}
+
+	return interm;
+}
+
+typedef struct {
+	Mat filtru_min;
+	Mat filtru_max;
+	Mat filtru_med;
+} matrici_filtru;
+
+matrici_filtru filtre_spatiale(Mat img) {
+	matrici_filtru m;
+	m.filtru_max = Mat(img.rows, img.cols, CV_8UC1);
+	m.filtru_min = Mat(img.rows, img.cols, CV_8UC1);
+	m.filtru_med = Mat(img.rows, img.cols, CV_8UC1);
+
+	std::vector<int> values;
+
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			for (int k = -1; k <= 1; k++) {
+				for (int v = -1; v <= 1; v++) {
+					values.push_back(img.at<uchar>(i + k, j + v));
+				}
+			}
+			std::sort(values.begin(), values.end());
+			m.filtru_max.at<uchar>(i, j) = values.back();
+			m.filtru_min.at<uchar>(i, j) = values.front();
+			m.filtru_med.at<uchar>(i, j) = values[values.size() / 2];
+			values.clear();
+		}
+	}
+	return m;
+}
+
+Mat gauss(Mat img) {
+	float G[5][5];
+	float sigma = 5.0 / 6;
+
+	for (int k = 0; k <= 4; k++) {
+		for (int v = 0; v <= 4; v++) {
+			float x = (k - 2) * (k - 2);
+			float y = (v - 2) * (v - 2);
+			float value = (1 / (2 * PI * sigma));
+			float fractie = -(x + y) / (2 * (sigma*sigma));
+			float fin = value * exp(fractie);
+			G[k][v] = fin;
+		}
+	}
+
+
+	Mat inter = Mat(img.rows, img.cols, CV_32FC1);
+
+	float gin_max = -92393;
+	float gin_min = 43853;
+
+	for (int i = 2; i < img.rows - 2; i++) {
+		for (int j = 2; j < img.cols - 2; j++) {
+			float sum = 0;
+			for (int k = -2; k <=2; k++) {
+				for (int v = -2; v <= 2; v++) {
+					sum += (float)img.at<uchar>(i + k, j + v) * G[k + 2][v + 2];
+				}
+			}
+			inter.at<float>(i, j) = sum;
+			gin_max = max(gin_max, inter.at<float>(i, j));
+			gin_min = min(gin_min, inter.at<float>(i, j));
+		}
+	}
+
+	float gout = 255;
+	float gout_min = 0;
+	float gout_max = 255;
+	float gin = gin_max - gin_min;
+
+	if (gin == 0) {
+		gin = 1;
+	}
+
+	Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			dst.at<uchar>(i, j) = gout_min + ((float)((float)(inter.at<float>(i, j) - gin_min) / gin) * gout);
+		}
+	}
+	return dst;
+}
+
+void lab_convolutii() {
+	Mat img = imread("Images/cameraman.bmp", IMREAD_GRAYSCALE);
+	int gauss_values[] = { 2,1,2,1,2,1,2,1,4 };
+	Mat gaus = filtru_trece_jos(img, gauss_values);
+	int trece_sus[] = { -1,0,-1,0,-1,0,-1,0,4 };
+	Mat trec_sus = filtru_trece_sus(img, trece_sus);
+	imshow("img", img);
+	imshow("suss", trec_sus);
+	imshow("gauss", gaus);
+	cv::waitKey(0);
+}
+
+void lab_filtre_spatiale() {
+	Mat img = imread("Images/imagini_zgomot/balloons_Gauss.bmp", IMREAD_GRAYSCALE);
+	matrici_filtru m = filtre_spatiale(img);
+	imshow("img", img);
+	/*imshow("min", m.filtru_min);
+	imshow("max", m.filtru_max);
+	imshow("med", m.filtru_med);*/
+	Mat gas = gauss(img);
+	imshow("gas", gas);
+	cv::waitKey(0);
+}
+
+Mat m_gradient(Mat ix, Mat iy) {
+	Mat M = Mat(ix.rows, ix.cols, CV_32SC1);
+	//int minim = 456546;
+	//int maxim = -123124;
+	for (int i = 0; i < ix.rows; i++) {
+		for (int j = 0; j < ix.cols; j++) {
+			M.at<int>(i, j) = sqrt(pow(ix.at<int>(i, j), 2) + pow(iy.at<int>(i, j), 2));
+			//minim = min(minim, M.at<int>(i, j));
+			//maxim = max(maxim, M.at<int>(i, j));
+		}
+	}
+	//Mat M_uchar = contrast_cu_mat_int(M, 0, 255, minim, maxim);
+	//imshow("M_uchar", M_uchar);
+	return M;
+}
+
+Mat contrast_cu_mat_float(Mat img, int gout_min, int gout_max, float gin_min, float gin_max) {
+	Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+	int gout = gout_max - gout_min;
+	int gin = gin_max - gin_min;
+	if (gin == 0) {
+		gin = 1;
+	}
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			dst.at<uchar>(i, j) = gout_min + ((float)((float)(img.at<float>(i, j) - gin_min) / gin) * gout);
+		}
+	}
+	return dst;
+}
+
+Mat teta_mat(Mat ix, Mat iy) {
+	Mat teta = Mat(ix.rows, ix.cols, CV_32FC1);
+	float minim = 456546;
+	float maxim = -123124;
+	for (int i = 0; i < ix.rows; i++) {
+		for (int j = 0; j < ix.cols; j++) {
+			teta.at<float>(i, j) = atan2(iy.at<int>(i,j), ix.at<int>(i,j));
+			//minim = min(minim, teta.at<float>(i, j));
+			//maxim = max(maxim, teta.at<float>(i, j));
+		}
+	}
+	//Mat teta_uchar = contrast_cu_mat_float(teta, 0, 255, minim, maxim);
+	//imshow("teta_uchar", teta_uchar);
+	return teta;
+}
+
+Mat suprimare_non_maxime(Mat teta_gauss, Mat m_gauss) {
+	Mat suprimat = Mat(teta_gauss.rows, teta_gauss.cols, CV_32SC1, cv::Scalar(0));
+	int gin_min = 34543;
+	int gin_max = -34543;
+	for (int i = 1; i < teta_gauss.rows - 1; i++) {
+		for (int j = 1; j < teta_gauss.cols - 1; j++) {
+			float v = teta_gauss.at<float>(i, j);
+			if (v < 0) {
+				v += (2 * PI);
+			}
+			float x = (v * 180) / PI;
+			if ((x > 22.5 && x < 67.5) || (x > 202.5 && x <= 247.5)) { // 1
+				if (m_gauss.at<int>(i, j) > m_gauss.at<int>(i - 1, j + 1) && m_gauss.at<int>(i, j) > m_gauss.at<int>(i + 1, j - 1)) {
+					suprimat.at<int>(i, j) = m_gauss.at<int>(i, j);
+				}
+			}
+			else if ((x <= 22.5 && x >= 0) || (x <= 360 && x >= 337.5) || (x <= 202.5 && x > 157.5)) { // 2
+				if (m_gauss.at<int>(i, j) > m_gauss.at<int>(i, j - 1) && m_gauss.at<int>(i, j) > m_gauss.at<int>(i, j+1)) {
+					suprimat.at<int>(i, j) = m_gauss.at<int>(i, j);
+				}
+			} 
+			else if ((x >= 112.5 && x <= 157.5) || (x > 292.5 && x < 337.5)) { // 3
+				if (m_gauss.at<int>(i, j) > m_gauss.at<int>(i - 1, j - 1) && m_gauss.at<int>(i, j) > m_gauss.at<int>(i + 1, j + 1)) {
+					suprimat.at<int>(i, j) = m_gauss.at<int>(i, j);
+				}
+			}
+			else if ((x > 247.5 && x <= 292.5) || (x < 112.5 && x >= 67.5)) { // 0
+				if (m_gauss.at<int>(i, j) > m_gauss.at<int>(i - 1, j) && m_gauss.at<int>(i, j) > m_gauss.at<int>(i + 1, j)) {
+					suprimat.at<int>(i, j) = m_gauss.at<int>(i, j);
+				}
+			}
+			gin_max = max(gin_max, suprimat.at<int>(i, j));
+			gin_min = min(gin_min, suprimat.at<int>(i, j));
+
+		}
+	}
+
+	Mat suprimat_uchar = contrast_cu_mat_int(suprimat, 0, 255, gin_min, gin_max);
+	return suprimat_uchar;
+}
+
+Mat canny_final(Mat m) {
+
+	Mat copy = m.clone();
+	Mat visited = Mat::zeros(m.rows, m.cols, CV_8UC1);
+	for (int i = 0; i < m.rows; i++) {
+		for (int j = 0; j < m.cols; j++) {
+			if (copy.at<uchar>(i, j) == 255) {
+				std::vector<Point2i> q;
+				q.push_back(Point2i(i, j));
+				visited.at<uchar>(i, j) = 1;
+				while (!q.empty()) {
+					Point2i point = q.back();
+					q.pop_back();
+					for (int k = -1; k <= 1; k++) {
+						for (int v = -1; v <= 1; v++) {
+							int ni = point.x + k;
+							int nj = point.y + v;
+							if (ni >= 0 && ni < m.rows && nj >= 0 && nj < m.cols) {
+								if ((copy.at<uchar>(ni, nj) == 128 || copy.at<uchar>(ni, nj) == 255) && visited.at<uchar>(ni, nj) == 0) {
+									copy.at<uchar>(ni, nj) = 255;
+									q.push_back(Point2i(ni, nj));
+									visited.at<uchar>(ni, nj) = 1;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for (int i = 0; i < m.rows; i++) {
+		for (int j = 0; j < m.cols; j++) {
+			if (copy.at<uchar>(i, j) == 128) {
+				copy.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	imshow("final", copy);
+	return copy;
+}
+
+Mat canny_before_fin(Mat nnmax, int high_t, int low_t) {
+	Mat copy = nnmax.clone();
+	for (int i = 0; i < nnmax.rows; i++) {
+		for (int j = 0; j < nnmax.cols; j++) {
+			if (nnmax.at<uchar>(i, j) >= high_t) {
+				copy.at<uchar>(i, j) = 255;
+			}
+			else if (nnmax.at<uchar>(i, j) < high_t && nnmax.at<uchar>(i,j) >= low_t) {
+				copy.at<uchar>(i, j) = 128;
+			}
+			else if (nnmax.at<uchar>(i, j) < low_t) {
+				copy.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	
+	Mat fin = canny_final(copy);
+	return fin;
+}
+
+void lab_11() {
+	Mat img = imread("Images/saturn.bmp", IMREAD_GRAYSCALE);
+	
+	int dx_vec[] = { 2,1,0,-1,-2,-1,0,1,0 };
+	Mat dx = filtru_trece_sus(img, dx_vec);
+	int dy_vec[] = { 0,1,2,1,0,-1,-2,-1,0 };
+	Mat dy = filtru_trece_sus(img, dy_vec);
+
+	Mat ix = filtru_trece_sus_matrice_int(img, dx_vec);
+	Mat iy = filtru_trece_sus_matrice_int(img, dy_vec);
+
+	Mat M = m_gradient(ix, iy);  // m = modul
+	Mat teta = teta_mat(ix, iy); // teta = gradient
+
+	/////////////        CANNY
+	int gauss_values[] = { 2,1,2,1,2,1,2,1,4 };
+	Mat gaus = filtru_trece_jos(img, gauss_values);
+
+	Mat ix_gauss = filtru_trece_sus_matrice_int(gaus, dx_vec);
+	Mat iy_gauss = filtru_trece_sus_matrice_int(gaus, dy_vec);
+
+	Mat M_gauss = m_gradient(ix_gauss, iy_gauss);
+	Mat teta_gauss = teta_mat(ix_gauss, iy_gauss);
+
+	Mat nnmax = suprimare_non_maxime(teta_gauss, M_gauss);
+
+	std::vector<int> hist(255, 0);
+	for (int i = 0; i < nnmax.rows; i++) {
+		for (int j = 0; j < nnmax.cols; j++) {
+			hist[(int)nnmax.at<uchar>(i, j)]++;
+		}
+	}
+	float p = 0.3;
+	int nr_non_muchie = (1 - p) * ((nnmax.rows * nnmax.cols) - hist[0]);
+	int sum = 0;
+
+	int high_t;
+	for (int i = 1; i <= 255; i++) {
+		sum += hist[i];
+		if (sum > nr_non_muchie) {
+			high_t = i;
+			break;
+		}
+	}
+	float k = 0.5;
+	int low_t = k * high_t;
+	canny_before_fin(nnmax, high_t, low_t);
+
+	imshow("img", img);
+	/*imshow("dx", dx);
+	imshow("dy", dy);*/
+	waitKey(0);
+}
+// _______HELPERS_END____________HELPERS_END_________HELPERS_END__________-----HELPERS-END---------------HELPERS-END---------HELPERS-END-----------HELPERS-END-------_________HELPERS______________HELPERS____________HELPERS___________\\
+
+
+
+
+// ====TEST=========TEST=====TEST====TEST=====TEST=====TEST========TEST===========TEST==========TEST===========TEST============TEST============TEST=============TEST==========TEST==========TEST======TEST=======TEST============
+void test_a_binarizare() {
+	Mat img1 = imread("Images/obiecte01.bmp", IMREAD_GRAYSCALE);
+	Mat img2 = imread("Images/obiecte02.bmp", IMREAD_GRAYSCALE);
+
+	Mat bin1 = Mat(img1.rows, img1.cols, CV_8UC1);
+	Mat bin2 = Mat(img2.rows, img2.cols, CV_8UC1);
+
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			bin1.at<uchar>(i, j) = (img1.at<uchar>(i, j) > 160) ? 255 : 0;
+		}
+	}
+	for (int i = 0; i < img2.rows; i++) {
+		for (int j = 0; j < img2.cols; j++) {
+			bin2.at<uchar>(i, j) = (img2.at<uchar>(i, j) > 160) ? 255 : 0;
+		}
+	}
+
+	imshow("img1", img1);
+	imshow("bin1", bin1);
+	imshow("img2", img2);
+	imshow("bin2", bin2);
+	cv::waitKey(0);
+}
+Mat test_b_label_img1() {
+	Mat img1 = imread("Images/obiecte01.bmp", IMREAD_GRAYSCALE);
+	Mat bin1 = Mat(img1.rows, img1.cols, CV_8UC1);
+
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			bin1.at<uchar>(i, j) = (img1.at<uchar>(i, j) < 255) ? 0 : 255;
+		}
+	}
+
+	Mat labels1 = Mat(img1.rows, img1.cols, CV_32SC1);
+	labels1.setTo(0);
+	int nrLabels = 0;
+	int di[] = { -1, -1, -1, 0, 0, 0, 1, 1, 1 };
+	int dj[] = { -1, 0, 1, -1, 0, 1, -1, 0, 1 };
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			if (bin1.at<uchar>(i, j) == 0 && labels1.at<int>(i, j) == 0) {
+				nrLabels++;
+				labels1.at<int>(i, j) = nrLabels;
+				std::queue<Point2i> q;
+				q.push({ i, j });
+				while (!q.empty()) {
+					Point2i p = q.front();
+					q.pop();
+					for (int k = 0; k < 9; k++) {
+						int ii = p.x + di[k];
+						int jj = p.y + dj[k];
+						if (ii > 0 && jj > 0 && ii < img1.rows && jj < img1.cols) {
+							if (bin1.at<uchar>(ii, jj) == 0 && labels1.at<int>(ii, jj) == 0) {
+								q.push({ ii, jj });
+								labels1.at<int>(ii, jj) = nrLabels;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	std::default_random_engine generate;
+	std::uniform_int_distribution<int> d(0, 255);
+
+	std::vector<Vec3b> colors;
+	colors.push_back(Vec3b(255, 255, 255));
+	for (int k = 0; k <= nrLabels; k++) {
+		Vec3b culoare;
+		culoare[0] = d(generate);
+		culoare[1] = d(generate);
+		culoare[2] = d(generate);
+		colors.push_back(culoare);
+	}
+
+	Mat dst = Mat(img1.rows, img1.cols, CV_8UC3);
+
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			dst.at<Vec3b>(i, j) = colors[labels1.at<int>(i, j)];
+		}
+	}
+	std::cout << "nrLabels prima imagine = " << nrLabels << std::endl;
+
+	return dst;
+}
+Mat test_b_label_img2() {
+	Mat img1 = imread("Images/obiecte02.bmp", IMREAD_GRAYSCALE);
+	Mat bin1 = Mat(img1.rows, img1.cols, CV_8UC1);
+
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			bin1.at<uchar>(i, j) = (img1.at<uchar>(i, j) < 255) ? 0 : 255;
+		}
+	}
+
+	Mat labels1 = Mat(img1.rows, img1.cols, CV_32SC1);
+	labels1.setTo(0);
+	int nrLabels = 0;
+	int di[] = { -1, -1, -1, 0, 0, 0, 1, 1, 1 };
+	int dj[] = { -1, 0, 1, -1, 0, 1, -1, 0, 1 };
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			if (bin1.at<uchar>(i, j) == 0 && labels1.at<int>(i, j) == 0) {
+				nrLabels++;
+				labels1.at<int>(i, j) = nrLabels;
+				std::queue<Point2i> q;
+				q.push({ i, j });
+				while (!q.empty()) {
+					Point2i p = q.front();
+					q.pop();
+					for (int k = 0; k < 9; k++) {
+						int ii = p.x + di[k];
+						int jj = p.y + dj[k];
+						if (ii > 0 && jj > 0 && ii < img1.rows && jj < img1.cols) {
+							if (bin1.at<uchar>(ii, jj) == 0 && labels1.at<int>(ii, jj) == 0) {
+								q.push({ ii, jj });
+								labels1.at<int>(ii, jj) = nrLabels;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	std::default_random_engine generate;
+	std::uniform_int_distribution<int> d(0, 255);
+
+	std::vector<Vec3b> colors;
+	colors.push_back(Vec3b(255, 255, 255));
+	for (int k = 0; k <= nrLabels; k++) {
+		Vec3b culoare;
+		culoare[0] = d(generate);
+		culoare[1] = d(generate);
+		culoare[2] = d(generate);
+		colors.push_back(culoare);
+	}
+
+	Mat dst = Mat(img1.rows, img1.cols, CV_8UC3);
+
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			dst.at<Vec3b>(i, j) = colors[labels1.at<int>(i, j)];
+		}
+	}
+	std::cout << "nrLabels prima imagine = " << nrLabels << std::endl;
+
+	return dst;
+}
+void test_b() {
+	Mat contur1 = test_b_label_img1();
+	Mat contur2 = test_b_label_img2();
+
+	imshow("contur1", contur1);
+	imshow("contur2", contur2);
+	cv::waitKey(0);
+}
+void test_d(Mat img);
+void test_c() {
+	Mat img1 = imread("Images/obiecte01.bmp", IMREAD_GRAYSCALE);
+	Mat bin1 = Mat(img1.rows, img1.cols, CV_8UC1);
+
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			bin1.at<uchar>(i, j) = (img1.at<uchar>(i, j) < 255) ? 0 : 255;
+		}
+	}
+	
+	float aspect_ratio_img_1[12];
+	float c1max[12] = { 0,0,0,0,0,0,0,0,0,0,0 };
+	float r1max[12] = { 0,0,0,0,0,0,0,0,0,0,0 };
+
+	float c1min[12] = { img1.cols ,img1.cols ,img1.cols ,img1.cols ,img1.cols ,img1.cols ,img1.cols ,img1.cols ,img1.cols ,img1.cols ,img1.cols ,img1.cols };
+	float r1min[12] = { img1.rows ,img1.rows ,img1.rows ,img1.rows ,img1.rows ,img1.rows ,img1.rows ,img1.rows ,img1.rows ,img1.rows ,img1.rows ,img1.rows };
+
+	Mat labels1 = Mat(img1.rows, img1.cols, CV_32SC1);
+	labels1.setTo(0);
+	int nrLabels = 0;
+	int di[] = { -1, -1, -1, 0, 0, 0, 1, 1, 1 };
+	int dj[] = { -1, 0, 1, -1, 0, 1, -1, 0, 1 };
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			if (bin1.at<uchar>(i, j) == 0 && labels1.at<int>(i, j) == 0) {
+				nrLabels++;
+				labels1.at<int>(i, j) = nrLabels;
+				std::queue<Point2i> q;
+				q.push({ i, j });
+				while (!q.empty()) {
+					Point2i p = q.front();
+					q.pop();
+					for (int k = 0; k < 9; k++) {
+						int ii = p.x + di[k];
+						int jj = p.y + dj[k];
+						if (ii > 0 && jj > 0 && ii < img1.rows && jj < img1.cols) {
+							if (bin1.at<uchar>(ii, jj) == 0 && labels1.at<int>(ii, jj) == 0) {
+								q.push({ ii, jj });
+								labels1.at<int>(ii, jj) = nrLabels;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			if (bin1.at<uchar>(i, j) == 0) {
+				c1max[labels1.at<int>(i, j)] = max(c1max[labels1.at<int>(i, j)], j);
+				c1min[labels1.at<int>(i, j)] = min(c1min[labels1.at<int>(i, j)], j);
+				r1max[labels1.at<int>(i, j)] = max(r1max[labels1.at<int>(i, j)], i);
+				r1min[labels1.at<int>(i, j)] = min(r1min[labels1.at<int>(i, j)], i);
+			}
+		}
+	}
+
+	for (int i = 1; i <= 11; i++) {
+		aspect_ratio_img_1[i] = (float)(c1max[i] - c1min[i] + 1) / (float)(r1max[i] - r1min[i] + 1);
+	}
+
+
+	///// de aici incepe pentru imaginea 2
+
+	Mat img2 = imread("Images/obiecte02.bmp", IMREAD_GRAYSCALE);
+	Mat bin2 = Mat(img2.rows, img2.cols, CV_8UC1);
+
+	for (int i = 0; i < img2.rows; i++) {
+		for (int j = 0; j < img2.cols; j++) {
+			bin2.at<uchar>(i, j) = (img2.at<uchar>(i, j) < 255) ? 0 : 255;
+		}
+	}
+
+	float aspect_ratio_img_2[12];
+	float c2max[12] = { 0,0,0,0,0,0,0,0,0,0,0 };
+	float r2max[12] = { 0,0,0,0,0,0,0,0,0,0,0 };
+
+	float c2min[12] = { img2.cols ,img2.cols ,img2.cols ,img2.cols ,img2.cols ,img2.cols ,img2.cols ,img2.cols ,img2.cols ,img2.cols ,img2.cols ,img2.cols };
+	float r2min[12] = { img2.rows ,img2.rows ,img2.rows ,img2.rows ,img2.rows ,img2.rows ,img2.rows ,img2.rows ,img2.rows ,img2.rows ,img2.rows ,img2.rows };
+
+	Mat labels2 = Mat(img2.rows, img2.cols, CV_32SC1);
+	labels2.setTo(0);
+	int nrLabels2 = 0;
+
+	for (int i = 0; i < img2.rows; i++) {
+		for (int j = 0; j < img2.cols; j++) {
+			if (bin2.at<uchar>(i, j) == 0 && labels2.at<int>(i, j) == 0) {
+				nrLabels2++;
+				labels2.at<int>(i, j) = nrLabels2;
+				std::queue<Point2i> q;
+				q.push({ i, j });
+				while (!q.empty()) {
+					Point2i p = q.front();
+					q.pop();
+					for (int k = 0; k < 9; k++) {
+						int ii = p.x + di[k];
+						int jj = p.y + dj[k];
+						if (ii > 0 && jj > 0 && ii < img2.rows && jj < img2.cols) {
+							if (bin2.at<uchar>(ii, jj) == 0 && labels2.at<int>(ii, jj) == 0) {
+								q.push({ ii, jj });
+								labels2.at<int>(ii, jj) = nrLabels2;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < img2.rows; i++) {
+		for (int j = 0; j < img2.cols; j++) {
+			if (bin2.at<uchar>(i, j) == 0) {
+				c2max[labels2.at<int>(i, j)] = max(c2max[labels2.at<int>(i, j)], j);
+				c2min[labels2.at<int>(i, j)] = min(c2min[labels2.at<int>(i, j)], j);
+				r2max[labels2.at<int>(i, j)] = max(r2max[labels2.at<int>(i, j)], i);
+				r2min[labels2.at<int>(i, j)] = min(r2min[labels2.at<int>(i, j)], i);
+			}
+		}
+	}
+
+	for (int i = 1; i <= 11; i++) {
+		aspect_ratio_img_2[i] = (float)(c2max[i] - c2min[i] + 1) / (float)(r2max[i] - r2min[i] + 1);
+	}
+
+	//// categorizare
+	int nrCategoria1 = 0;
+	int nrCategoria2 = 0;
+	int nrCategoria3 = 0;
+	for (int i = 1; i <= 11; i++) {
+		if (aspect_ratio_img_1[i] < 0.9) {
+			nrCategoria1++;
+		}
+		if (aspect_ratio_img_1[i] >= 0.9 && aspect_ratio_img_1[i] <= 1.1) {
+			nrCategoria2++;
+		}
+		if (aspect_ratio_img_1[i] > 1.1) {
+			nrCategoria3++;
+		}
+
+		if (aspect_ratio_img_2[i] < 0.9) {
+			nrCategoria1++;
+		}
+		if (aspect_ratio_img_2[i] >= 0.9 && aspect_ratio_img_2[i] <= 1.1) {
+			nrCategoria2++;
+		}
+		if (aspect_ratio_img_2[i] > 1.1) {
+			nrCategoria3++;
+		}
+	}
+	printf("imagini in categoria 1 = %d\n", nrCategoria1);
+	printf("imagini in categoria 2 = %d\n", nrCategoria2);
+	printf("imagini in categoria 3 = %d\n", nrCategoria3);
+
+
+	int arie_img_1[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
+	int arie_img_2[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			arie_img_1[labels1.at<int>(i,j)] += (labels1.at<int>(i, j) > 0) ? 1 : 0;
+		}
+	}
+
+	for (int i = 0; i < img2.rows; i++) {
+		for (int j = 0; j < img2.cols; j++) {
+			arie_img_2[labels2.at<int>(i, j)] += (labels2.at<int>(i, j) > 0) ? 1 : 0;
+		}
+	}
+
+
+	int rows = max(img1.rows, img2.rows);
+	int cols = max(img1.cols, img2.cols);
+	Mat rosu = Mat(rows, cols, CV_8UC3, cv::Scalar(255, 255, 255));
+	for (int k = 1; k <= 11; k++) {
+		if (arie_img_1[k] > 300 && aspect_ratio_img_1[k] >= 0.9 && aspect_ratio_img_1[k] <= 1.1) {
+			for (int i = 0; i < rows; i++) {
+				for (int j = 0; j < cols; j++) {
+					if (labels1.at<int>(i, j) == k) {
+						rosu.at<Vec3b>(i, j) = Vec3b(0, 0, 255);
+					}
+				}
+			}
+		}
+		if (arie_img_2[k] > 300 && aspect_ratio_img_2[k] >= 0.9 && aspect_ratio_img_2[k] <= 1.1) {
+			for (int i = 0; i < rows; i++) {
+				for (int j = 0; j < cols; j++) {
+					if (labels2.at<int>(i, j) == k) {
+						rosu.at<Vec3b>(i, j) = Vec3b(0, 0, 255);
+					}
+				}
+			}
+		}
+	}
+	
+	imshow("rosu", rosu);
+	test_d(rosu);
+	cv::waitKey(0);
+}
+void test_d(Mat img_primita) {
+	Mat img = Mat(img_primita.rows, img_primita.cols, CV_8UC1);
+	img.setTo(255);
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img_primita.at<Vec3b>(i, j)[0] == 0 && img_primita.at<Vec3b>(i, j)[1] == 0 && img_primita.at<Vec3b>(i, j)[2] == 255) {
+				img.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	Mat labels2 = Mat(img.rows, img.cols, CV_32SC1);
+	labels2.setTo(0);
+	int nrLabels2 = 0;
+	int di[] = { -1, -1, -1, 0, 0, 0, 1, 1, 1 };
+	int dj[] = { -1, 0, 1, -1, 0, 1, -1, 0, 1 };
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0 && labels2.at<int>(i, j) == 0) {
+				nrLabels2++;
+				labels2.at<int>(i, j) = nrLabels2;
+				std::queue<Point2i> q;
+				q.push({ i, j });
+				while (!q.empty()) {
+					Point2i p = q.front();
+					q.pop();
+					for (int k = 0; k < 9; k++) {
+						int ii = p.x + di[k];
+						int jj = p.y + dj[k];
+						if (ii > 0 && jj > 0 && ii < img.rows && jj < img.cols) {
+							if (img.at<uchar>(ii, jj) == 0 && labels2.at<int>(ii, jj) == 0) {
+								q.push({ ii, jj });
+								labels2.at<int>(ii, jj) = nrLabels2;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	Mat dst = Mat(img.rows, img.cols, CV_8UC3, cv::Scalar(255, 255, 255));
+	std::vector<int> label_contour;
+	std::vector<int> dir;
+
+	int dx[] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+	int dy[] = { 0, 1, 1, 1, 0, -1, -1, -1 };
+
+	for (int k = 0; k < 4; k++) {
+		std::vector<cv::Point> contour;
+
+		for (int i = 0; i < img.rows; i++) {
+			for (int j = 0; j < img.cols; j++) {
+				if (img.at<uchar>(i, j) == 0 && contour.size() == 0) {
+					bool flag = false;
+
+					for (int zxc = 0; zxc < label_contour.size(); zxc++) {
+						if (label_contour[zxc] == labels2.at<int>(i, j)) {
+							flag = true;
+						}
+					}
+					if (flag == false) {
+						contour.push_back(Point(j, i));  // col, row
+						label_contour.push_back(labels2.at<int>(i, j));
+						dir.push_back(7);
+						break;
+					}
+					
+				}
+			}
+			if (contour.size() != 0)
+				break;
+		}
+		int pointDir;
+
+		do {
+			pointDir = dir.back();
+			pointDir = (pointDir % 2 == 0) ? (pointDir + 7) % 8 : (pointDir + 6) % 8;
+
+			do {
+				cv::Point check = contour.back();
+				check.x += dx[pointDir];
+				check.y += dy[pointDir];
+				if (img.at<uchar>(check.y, check.x) == 0) {
+					contour.push_back(check);
+					dir.push_back(pointDir);
+					break;
+				}
+				else {
+					pointDir = (pointDir + 1) % 8;
+				}
+			} while (true);
+
+		} while (
+			!(contour[contour.size() - 1] == contour[1] && contour[contour.size() - 2] == contour[0])
+			|| contour.size() < 10
+			);
+
+
+		for (int i = 0; i < contour.size(); i++) {
+			dst.at<Vec3b>(contour[i].y, contour[i].x) = cv::Vec3b(0, 255, 0);
+		}
+
+	}
+	
+
+	imshow("dst", dst);
+}
+void test_e() {
+	Mat img1 = imread("Images/obiecte01.bmp", IMREAD_GRAYSCALE);
+	Mat img2 = imread("Images/obiecte02.bmp", IMREAD_GRAYSCALE);
+
+	Mat bin1 = Mat(img1.rows, img1.cols, CV_8UC1);
+	Mat bin2 = Mat(img2.rows, img2.cols, CV_8UC1);
+
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			bin1.at<uchar>(i, j) = (img1.at<uchar>(i, j) > 160) ? 255 : 0;
+		}
+	}
+	for (int i = 0; i < img2.rows; i++) {
+		for (int j = 0; j < img2.cols; j++) {
+			bin2.at<uchar>(i, j) = (img2.at<uchar>(i, j) > 160) ? 255 : 0;
+		}
+	}
+
+	int rows = max(img1.rows, img2.rows);
+	int cols = max(img1.cols, img2.cols);
+	Mat compus = Mat(rows, cols, CV_8UC3, cv::Scalar(255, 255, 255));
+
+
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			if (bin1.at<uchar>(i, j) == 0) {
+				compus.at<Vec3b>(i, j) = Vec3b(0, 0, 255);
+			}
+		}
+	}
+	for (int i = 0; i < img2.rows; i++) {
+		for (int j = 0; j < img2.cols; j++) {
+			if (bin2.at<uchar>(i, j) == 0) {
+				compus.at<Vec3b>(i, j) = Vec3b(0, 255, 0);
+			}
+		}
+	}
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < cols; j++) {
+			if (i < img1.rows && i < img2.rows && j < img1.cols && j < img2.cols && bin1.at<uchar>(i, j) == 0 && bin2.at<uchar>(i, j) == 0)
+			 {
+				compus.at<Vec3b>(i, j) = Vec3b(255, 0, 0);
+			}
+		}
+	}
+	imshow("compus", compus);
+	cv::waitKey(0);
+}
+// ====TEST=========TEST=====TEST====TEST=====TEST=====TEST========TEST===========TEST==========TEST===========TEST============TEST============TEST=============TEST==========TEST==========TEST======TEST=======TEST============
+
+
+void fill() {
+	Mat img = imread("Images/6_RegionFilling/wdg2ded1_bw.bmp", IMREAD_GRAYSCALE);
+	Mat imgCompl = Mat(img.rows, img.cols, CV_8UC1);
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			imgCompl.at<uchar>(i, j) = (img.at<uchar>(i, j) == 0) ? 255 : 0;
+		}
+	}
+
+	Point2i punctStart;
+
+	punctStart.x = 250;
+	punctStart.y = 250;
+
+	Mat dilatat = Mat(img.rows, img.cols, CV_8UC1);
+
+	Mat mk1 = Mat(img.rows, img.cols, CV_8UC1);
+	mk1.setTo(255);
+	mk1.at<uchar>(punctStart.x, punctStart.y) = 0;
+
+	bool matrici_egale = false;
+
+	for (int i = 0; i < img.rows && matrici_egale == false; i++) {
+		for (int j = 0; j < img.cols && matrici_egale == false; j++) {
+			dilatat = dilatare(mk1);
+			dilatat = intersectie_pentru_fill(dilatat, imgCompl);
+			matrici_egale = verifica_egalitate_matrici(dilatat, mk1);
+			mk1 = dilatat;
+		}
+	}
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0 && mk1.at<uchar>(i, j) == 255) {
+				mk1.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	imshow("filled", dilatat);
+	cv::waitKey(0);
+}
+
+
+// ====== PROIECT ============ PROIECT ============== PROIECT ======= PROIECT =========== PROIECT ============= PROIECT =============== PROIECT ========== PROIECT ============= PROIECT
+
+Mat edge_det_diagonal(Mat img, int values[5][5]) {
+
+	Mat copy = Mat(img.rows, img.cols, CV_32SC1);
+	int min_val = 256;
+	int max_val = -1;
+	for (int i = 2; i < img.rows - 2; i++) {
+		for (int j = 2; j < img.cols - 2; j++) {
+			int val = 0;
+			for (int k = -2; k <= 2; k++) {
+				for (int v = -2; v <= 2; v++) {
+					int value = values[k+2][v+2];
+					val += img.at<uchar>(i+k, j+v) * value;
+				}
+				
+			}
+			min_val = min(min_val, val);
+			max_val = max(max_val, val);
+			copy.at<int>(i, j) = val;
+		}
+	}
+
+	Mat fin = contrast_cu_mat_int(copy, 0, 255, min_val, max_val);
+
+	return fin;
+}
+
+Mat contur_laplace(Mat img) {
+	int di[] =     { 0, -1, -1, -1, +0, +1, +1, 1 };
+	int dj[] =	   { 1, +1, +0, -1, -1, -1, +0, 1 };
+	int values[] = { -1, 2, -1, +2, -1, +2, -1, 2 };
+	Mat copy = img.clone();
+
+	for (int i = 1; i < img.rows-1; i++) {
+		for (int j = 1; j < img.cols-1; j++) {
+			int val = 0;
+			for (int k = 0; k < 8; k++) {
+				int ii = di[k] + i;
+				int jj = dj[k] + j;
+				int value = values[k];
+				val += img.at<uchar>(ii, jj) * value;
+			}
+			copy.at<uchar>(i, j) = val;
+		}
+	}
+	return copy;
+}
+
+Mat expand_whites(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) > 200) {
+				copy.at<uchar>(i, j) = 255;
+				for (int k = -1; k <= 1; k++) {
+					for (int l = -1; l <= 1; l++) {
+						if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+							copy.at<uchar>(i + k, j + l) = 255;
+						}
+					}
+				}
+			}
+			else if (img.at<uchar>(i, j) < 30) {
+				copy.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+	return copy;
+}
+
+Mat expand_whites_surrounded_by_blacks_and_blacks_surrounded_by_whites(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) > 200) {
+				int sum = 0;
+				for (int k = -1; k <= 1; k++) {
+					for (int l = -1; l <= 1; l++) {
+						if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+							sum += copy.at<uchar>(i + k, j + l);
+						}
+					}
+				}
+				if (sum / 9 < 200) {
+					for (int k = -1; k <= 1; k++) {
+						for (int l = -1; l <= 1; l++) {
+							if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+								copy.at<uchar>(i + k, j + l) = 255;
+							}
+						}
+					}
+				}
+			}
+			else if (img.at<uchar>(i, j) < 70) {
+				int sum = 0;
+				for (int k = -1; k <= 1; k++) {
+					for (int l = -1; l <= 1; l++) {
+						if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+							sum += copy.at<uchar>(i + k, j + l);
+						}
+					}
+				}
+				if (sum / 9 > 70) {
+					for (int k = -1; k <= 1; k++) {
+						for (int l = -1; l <= 1; l++) {
+							if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+								copy.at<uchar>(i + k, j + l) = 0;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return copy;
+}
+
+Mat compare(Mat img1, Mat img2) {
+	Mat copy = Mat(img1.rows, img2.cols, CV_8UC3, cv::Scalar(0,0,0));
+	for (int i = 0; i < img1.rows; i++) {
+		for (int j = 0; j < img1.cols; j++) {
+			if ((img1.at<Vec3b>(i, j) == Vec3b(0, 0, 255) || img1.at<Vec3b>(i, j) == Vec3b(0, 255, 0)) && (img2.at<uchar>(i, j) < 30 || img2.at<uchar>(i, j) > 225)) {
+				copy.at<Vec3b>(i, j) = Vec3b(255,255,0);
+			}
+		}
+	}
+	return copy;
+}
+
+Mat draw_contour_on_black(Mat img) {
+	Mat copy = Mat(img.rows, img.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0) {
+				for (int k = -1; k <= 1; k++) {
+					for (int l = -1; l <= 1; l++) {
+						if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+							if (img.at<uchar>(i + k, j + l) > 1) {
+								copy.at<Vec3b>(i, j) = Vec3b(0, 0, 255);
+							}
+						}
+					}
+				}
+				
+			}
+		}
+	}
+	return copy;
+}
+
+Mat dilatare_color(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j)[0] == 0 && img.at<Vec3b>(i, j)[1] == 0 && img.at<Vec3b>(i, j)[2] == 255) {
+				for (int k = -1; k <= 1; k++) {
+					for (int l = -1; l <= 1; l++) {
+						if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+							copy.at<Vec3b>(i + k, j + l) = Vec3b(0, 0, 255);
+						}
+					}
+				}
+			}
+		}
+	}
+	return copy;
+}
+
+Mat eroziune_color(Mat img) {
+	Mat copy = img.clone();
+	
+	int di[] = { 0, -1, -1, -1, +0, +1, +1, 1 };
+	int dj[] = { 1, +1, +0, -1, -1, -1, +0, 1 };
+
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			if (img.at<Vec3b>(i, j) == Vec3b(0, 0, 255)) {
+				int s = 0;
+				for (int k = 0; k < 8; k++) {
+					int ii = di[k] + i;
+					int jj = dj[k] + j;
+					if (img.at<Vec3b>(ii, jj) == Vec3b(0, 0, 0)) {
+						s++;
+					}
+				}
+				if (s == 8) {
+					copy.at<Vec3b>(i, j) = Vec3b(0, 0, 0);
+				}
+			}
+		}
+	}
+	return copy;
+}
+
+Mat expand_reds(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (copy.at<Vec3b>(i, j) == Vec3b(0,0,255)) {
+				for (int k = -1; k <= 1; k++) {
+					for (int l = -1; l <= 1; l++) {
+						if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+							if (k != 0 && l != 0 && copy.at<Vec3b>(i + k, j + l) != Vec3b(0, 0, 255)) {
+								copy.at<Vec3b>(i + k, j + l) = Vec3b(0, 255, 0);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return copy;
+}
+
+Mat clear_red_patches(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			std::vector<Point2i> points;
+			for (int k = -5; k <= 5; k++) {
+				for (int l = -5; l <= 5; l++) {
+					if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+						if (img.at<Vec3b>(i + k, j + l) == Vec3b(0, 0, 255)) {
+							points.push_back(Point2i(i + k, j + l));
+						}
+					}
+				}
+			}
+			if (points.size() <= 5) {
+				for (int k = 0; k < points.size(); k++) {
+					copy.at<Vec3b>(points[k].x, points[k].y) = Vec3b(255,255,255);
+				}
+			}
+			points.clear();
+		}
+	}
+	return copy;
+}
+
+Mat clear_red_green_patches(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 0; i < img.rows; i += 5) {
+		for (int j = 0; j < img.cols; j += 5) {
+			std::vector<Point2i> red_points;
+			std::vector<Point2i> green_points;
+			for (int k = -5; k <= 5; k++) {
+				for (int l = -5; l <= 5; l++) {
+					if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+						if (img.at<Vec3b>(i + k, j + l) == Vec3b(0, 0, 255)) {
+							red_points.push_back(Point2i(i + k, j + l));
+						} else if (img.at<Vec3b>(i + k, j + l) == Vec3b(0, 255, 0)) {
+							green_points.push_back(Point2i(i + k, j + l));
+						}
+					}
+				}
+			}
+			if (green_points.size() > red_points.size() && (green_points.size() + red_points.size() > 90)) {
+				for (int k = 0; k < red_points.size(); k++) {
+					copy.at<Vec3b>(red_points[k].x, red_points[k].y)[2] = 0;
+				}
+				for (int k = 0; k < green_points.size(); k++) {
+					copy.at<Vec3b>(green_points[k].x, green_points[k].y)[2] = 0;
+				}
+			}
+			green_points.clear();
+			red_points.clear();
+		}
+	}
+	return copy;
+}
+
+Mat cover_similar_grays(Mat img) {
+	Mat labels = Mat(img.rows, img.cols, CV_32SC1);
+	labels.setTo(0);
+	int nrLabels = 0;
+	int di[] = { -1, -1, -1, 0, 0, 0, 1, 1, 1 };
+	int dj[] = { -1, 0, 1, -1, 0, 1, -1, 0, 1 };
+
+	const int threshold_over200 = 35;
+	const int threshold_under200 = 5;
+
+	for (int i = 0; i < img.rows; i += 5) {
+		for (int j = 0; j < img.cols; j += 5) {
+			uchar val = img.at<uchar>(i, j);
+			if ((val >= 70 && val <= 170 && labels.at<int>(i, j) == 0) ||
+				(val >= 200 && labels.at<int>(i, j) == 0)) {
+
+				int threshold = (val >= 200) ? threshold_over200 : threshold_under200;
+				nrLabels++;
+				labels.at<int>(i, j) = nrLabels;
+				std::queue<Point2i> q;
+				q.push({ i, j });
+
+				while (!q.empty()) {
+					Point2i p = q.front(); q.pop();
+					for (int k = 0; k < 9; k++) {
+						int ii = p.x + di[k];
+						int jj = p.y + dj[k];
+						if (ii >= 0 && jj >= 0 && ii < img.rows && jj < img.cols) {
+							if (labels.at<int>(ii, jj) == 0 &&
+								abs(img.at<uchar>(ii, jj) - val) <= threshold) {
+								q.push({ ii, jj });
+								labels.at<int>(ii, jj) = nrLabels;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Frecvență
+	int* labels_frequency = (int*)calloc(nrLabels + 1, sizeof(int));
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			labels_frequency[labels.at<int>(i, j)]++;
+		}
+	}
+
+	// Harta vecinilor
+	std::map<int, std::set<int>> neighbors;
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			int currLabel = labels.at<int>(i, j);
+			for (int k = 0; k < 9; k++) {
+				int ni = i + di[k];
+				int nj = j + dj[k];
+				if (ni >= 0 && nj >= 0 && ni < img.rows && nj < img.cols) {
+					int neighborLabel = labels.at<int>(ni, nj);
+					if (neighborLabel != currLabel && currLabel != 0 && neighborLabel != 0) {
+						neighbors[currLabel].insert(neighborLabel);
+						neighbors[neighborLabel].insert(currLabel);
+					}
+				}
+			}
+		}
+	}
+
+	// Culori apropiate pentru regiuni vecine
+	std::map<int, Vec3b> labelColor;
+	std::set<int> visited;
+	std::default_random_engine generate;
+	std::uniform_int_distribution<int> baseDist(64, 192); // culoare de bază mai soft
+
+	for (int lbl = 1; lbl <= nrLabels; ++lbl) {
+		if (visited.count(lbl)) continue;
+
+		Vec3b baseColor(baseDist(generate), baseDist(generate), baseDist(generate));
+		std::queue<int> q;
+		q.push(lbl);
+		visited.insert(lbl);
+		labelColor[lbl] = baseColor;
+
+		while (!q.empty()) {
+			int current = q.front(); q.pop();
+			Vec3b currentColor = labelColor[current];
+
+			int variationStep = 10;
+			for (int neighbor : neighbors[current]) {
+				if (visited.count(neighbor)) continue;
+				visited.insert(neighbor);
+
+				Vec3b newColor;
+				for (int c = 0; c < 3; ++c) {
+					int val = currentColor[c] + (rand() % (2 * variationStep + 1)) - variationStep;
+					newColor[c] = saturate_cast<uchar>(val);
+				}
+
+				labelColor[neighbor] = newColor;
+				q.push(neighbor);
+			}
+		}
+	}
+
+	// Generare imagine finală
+	Mat dst = Mat(img.rows, img.cols, CV_8UC3, Scalar(255, 255, 255));
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			int lbl = labels.at<int>(i, j);
+			if (lbl != 0 && labels_frequency[lbl] > 700) {
+				dst.at<Vec3b>(i, j) = labelColor[lbl];
+			}
+		}
+	}
+
+	std::cout << "nrLabels = " << nrLabels << std::endl;
+	return dst;
+}
+
+Mat black_under_55(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) <= 55) {
+				copy.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+	return copy;
+}
+
+Mat combine_colors_with_contour(Mat colors, Mat contour) {
+	Mat copy = contour.clone();
+	for (int i = 0; i < colors.rows; i++) {
+		for (int j = 0; j < colors.cols; j++) {
+			if (colors.at<Vec3b>(i, j) != Vec3b(255,255,255) && colors.at<Vec3b>(i, j) != Vec3b(205, 205, 205)) {
+				copy.at<Vec3b>(i, j) = Vec3b(128, 128, 0);
+			}
+		}
+	}
+	return copy;
+}
+
+Mat expand_blacks(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j) == Vec3b(0, 0, 0)) {
+				for (int k = -1; k <= 1; k++) {
+					for (int l = -1; l <= 1; l++) {
+						if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+							if (img.at<Vec3b>(i + k, j + l) != Vec3b(0, 0, 255)) {
+								copy.at<Vec3b>(i + k, j + l) = Vec3b(0, 0, 0);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return copy;
+}
+
+Mat expand_turquoise(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j) == Vec3b(128, 128, 0)) {
+				for (int k = -1; k <= 1; k++) {
+					for (int l = -1; l <= 1; l++) {
+						if (i + k >= 0 && i + k < img.rows && j + l >= 0 && j + l < img.cols) {
+							if (img.at<Vec3b>(i + k, j + l) != Vec3b(0, 0, 255)) {
+								copy.at<Vec3b>(i + k, j + l) = Vec3b(128, 128, 0);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return copy;
+}
+
+Mat dilatare_and_make_background_white(Mat img) {
+	int di[] = { 0, -1, 0, +1, -1, -1, +1, +1 };
+	int dj[] = { +1, 0, -1, 0, +1, -1, -1, +1 };
+
+	Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+	dst = img.clone();
+	std::vector<int> h(256, 0);
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			if (img.at<uchar>(i, j) < 85)
+			{
+				for (int k = 0; k < 8; k++) {
+					int ii = di[k] + i;
+					int jj = dj[k] + j;
+					dst.at<uchar>(ii, jj) = img.at<uchar>(i, j);
+				}
+			}
+			h[(int)dst.at<uchar>(i, j)]++;
+		}
+	}
+	int mx = -1;
+	int i_max = -1;
+	for (int i = 0; i < 256; i++) {
+		if (h[i] > mx) {
+			mx = h[i];
+			i_max = i;
+		}
+
+	}
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (dst.at<uchar>(i, j) == i_max) {
+				dst.at<uchar>(i, j) = 255;
+			}
+		}
+	}
+
+	return dst;
+}
+
+Mat dilat_1(Mat img) {
+	int di[] = { 0, -1, 0, +1, -1, -1, +1, +1 };
+	int dj[] = { +1, 0, -1, 0, +1, -1, -1, +1 };
+
+	Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+	dst = img.clone();
+
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			if (img.at<uchar>(i, j) < 85)
+			{
+				for (int k = 0; k < 8; k++) {
+					int ii = di[k] + i;
+					int jj = dj[k] + j;
+					if(img.at<uchar>(ii, jj) != 255)
+						dst.at<uchar>(ii, jj) = img.at<uchar>(i, j);
+				}
+			}
+			
+		}
+	}
+	return dst;
+}
+
+Mat inmxx(Mat img) {
+	int di[] = { 0, -1, 0, +1, -1, -1, +1, +1 };
+	int dj[] = { +1, 0, -1, 0, +1, -1, -1, +1 };
+
+	Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+	dst = img.clone();
+
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			if (img.at<uchar>(i, j) < 85)
+			{
+				dst.at<uchar>(i, j) *= 0.7;
+			}
+			if (img.at<uchar>(i, j) > 95 && img.at<uchar>(i, j) < 185)
+			{
+				dst.at<uchar>(i, j) *= 1.3;
+			}
+		}
+	}
+	return dst;
+}
+
+Mat showHistogram_proiect(const std::string& name, std::vector<int> hist, const int  hist_cols, const int hist_height)
+{
+	Mat imgHist(hist_height, hist_cols, CV_8UC3, CV_RGB(255, 255, 255)); // constructs a white image
+
+	//computes histogram maximum
+	int max_hist = 0;
+	for (int i = 0; i < hist_cols; i++)
+		if (hist[i] > max_hist)
+			max_hist = hist[i];
+	double scale = 1.0;
+	scale = (double)hist_height / max_hist;
+	int baseline = hist_height - 1;
+
+	for (int x = 0; x < hist_cols; x++) {
+		Point p1 = Point(x, baseline);
+		Point p2 = Point(x, baseline - cvRound(hist[x] * scale));
+		line(imgHist, p1, p2, CV_RGB(255, 0, 255)); // histogram bins colored in magenta
+	}
+	
+	return imgHist;
+}
+
+std::vector<int> hist_vector_generator(Mat img) {
+	std::vector<int> h(img.cols, 0);
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) < 200) {
+				h[j]++;
+			}
+		}
+	}
+	showHistogram_proiect("hey", h, img.cols, img.rows);
+	return h;
+}
+
+std::vector<int> findValleysRobust(Mat img, const std::vector<int>& h, int window = 10, int drop = 20, int dedup_radius = 10) {
+	std::vector<int> candidates;
+	int n = h.size();
+
+	for (int i = window; i < n - window; ++i) {
+		int center = h[i];
+		int left_avg = *std::max_element(h.begin() + i - window, h.begin() + i - 2);
+		int right_avg = *std::max_element(h.begin() + i + 2, h.begin() + i + window);
+
+		bool is_dip = (left_avg - center >= drop) && (right_avg - center >= drop);
+
+		if (is_dip)
+			candidates.push_back(i);
+	}
+	std::vector<int> filtered;
+	for (int i = 0; i < candidates.size(); ++i) {
+		int idx = candidates[i];
+
+		if (!filtered.empty() && std::abs(idx - filtered.back()) < dedup_radius) {
+			if (h[idx] < h[filtered.back()])
+				filtered.back() = idx;
+			continue;
+		}
+
+		filtered.push_back(idx);
+	}
+
+	return filtered;
+}
+
+Mat xpand_red(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			if (img.at<Vec3b>(i, j) == Vec3b(0, 0, 255)) {
+				for (int k = -1; k <= 1; k++) {
+					for (int v = -1; v <= 1; v++) {
+						copy.at<Vec3b>(i + k, j + v) = Vec3b(0, 0, 255);
+					}
+				}
+			}
+		}
+	}
+	return copy;
+}
+
+Mat drill_mine(Mat img, std::vector<int> valleys) {
+	Mat copy = img.clone();
+	
+	for (int j : valleys) {
+		for (int i = img.rows - 1; i >= 0; i--) {
+			if (i >= 0 && i < img.rows && j >= 0 && j < img.cols && img.at<Vec3b>(i, j) == Vec3b(255, 255, 255)) {
+				std::vector<Point2i> q;
+				q.push_back(Point2i(i, j));
+
+				while (!q.empty()) {
+					Point2i point = q.back();
+					q.pop_back();
+					if (point.x >= 0 && point.x < copy.rows &&
+						point.y >= 0 && point.y < copy.cols &&
+						copy.at<Vec3b>(point.x - 1, point.y) == Vec3b(255, 255, 255))
+					{
+						copy.at<Vec3b>(point.x, point.y) = Vec3b(255, 255, 255); 
+						for (int k = -1; k <= 1; k++) {
+							for (int v = -1; v <= 1; v++) {
+								int nx = point.x + k;
+								int ny = point.y + v;
+								if (nx >= 0 && nx < img.rows && 
+									ny >= 0 && ny < img.cols && 
+									copy.at<Vec3b>(nx, ny) != Vec3b(255,255,255) &&
+									copy.at<Vec3b>(nx, ny) != Vec3b(128, 128, 255)
+									) {
+									q.push_back(Point2i(nx, ny));
+								}
+							}
+						}
+					}
+				}
+				break;
+			}
+		}
+	}
+	return copy;
+}
+
+Mat retract_reds_with_white_neighbors(Mat img) {
+	Mat copy = img.clone();
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			if (img.at<Vec3b>(i, j) == Vec3b(0, 0, 255)) {
+				for (int k = -1; k <= 1; k++) {
+					for (int v = -1; v <= 1; v++) {
+						if (img.at<Vec3b>(i + k, j + v) == Vec3b(255, 255, 255)) {
+							copy.at<Vec3b>(i, j) = Vec3b(255, 255, 255);
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+	return copy;
+}
+
+Mat erode_small_turquoise_with_size(Mat img, int size) {
+	Mat copy = img.clone();
+	std::vector<std::vector<bool>> visited(img.rows, std::vector<bool>(img.cols, false));
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (!visited[i][j] && img.at<Vec3b>(i, j) == Vec3b(128, 128, 0)) {
+				std::vector<Point2i> q;
+				std::vector<Point2i> region;
+				q.push_back(Point2i(i, j));
+				visited[i][j] = true;
+
+				while (!q.empty()) {
+					Point2i point = q.back();
+					q.pop_back();
+					region.push_back(point);
+
+					if (region.size() > size)
+						break;
+
+					for (int dx = -1; dx <= 1; dx++) {
+						for (int dy = -1; dy <= 1; dy++) {
+							int ni = point.x + dx;
+							int nj = point.y + dy;
+
+							if (ni >= 0 && ni < img.rows && nj >= 0 && nj < img.cols &&
+								!visited[ni][nj] &&
+								img.at<Vec3b>(ni, nj) == Vec3b(128, 128, 0)) {
+
+								q.push_back(Point2i(ni, nj));
+								visited[ni][nj] = true;
+							}
+						}
+					}
+				}
+
+				if (region.size() <= size) {
+					for (const Point2i& p : region) {
+						copy.at<Vec3b>(p.x, p.y) = Vec3b(0, 0, 0);  // mark small patches
+					}
+				}
+			}
+		}
+	}
+
+	return copy;
+}
+Mat erode_small_turquoise_with_size_2(Mat img, int size) {
+	Mat copy = img.clone();
+	std::vector<std::vector<bool>> visited(img.rows, std::vector<bool>(img.cols, false));
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (!visited[i][j] && copy.at<Vec3b>(i, j) == Vec3b(128, 128, 0)) {
+				std::vector<Point2i> q;
+				std::vector<Point2i> region;
+				q.push_back(Point2i(i, j));
+				visited[i][j] = true;
+
+				while (!q.empty()) {
+					Point2i point = q.back();
+					q.pop_back();
+					region.push_back(point);
+
+					if (region.size() > size) break;
+
+					for (int dx = -1; dx <= 1; dx++) {
+						for (int dy = -1; dy <= 1; dy++) {
+							int ni = point.x + dx;
+							int nj = point.y + dy;
+
+							if (ni >= 0 && ni < img.rows &&
+								nj >= 0 && nj < img.cols &&
+								!visited[ni][nj] &&
+								copy.at<Vec3b>(ni, nj) == Vec3b(128, 128, 0)) {
+
+								q.push_back(Point2i(ni, nj));
+								visited[ni][nj] = true;
+							}
+						}
+					}
+				}
+
+				if (region.size() <= size) {
+					for (const Point2i& p : region) {
+						copy.at<Vec3b>(p.x, p.y) = Vec3b(0, 0, 0); // Mark as changed
+					}
+				}
+			}
+		}
+	}
+
+	return copy;
+}
+Mat erode_small_red_with_size_2(Mat img, int size) {
+	Mat copy = img.clone();
+	std::vector<std::vector<bool>> visited(img.rows, std::vector<bool>(img.cols, false));
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (!visited[i][j] && copy.at<Vec3b>(i, j) == Vec3b(0, 0, 255)) {
+				std::vector<Point2i> q;
+				std::vector<Point2i> region;
+				q.push_back(Point2i(i, j));
+				visited[i][j] = true;
+
+				while (!q.empty()) {
+					Point2i point = q.back();
+					q.pop_back();
+					region.push_back(point);
+
+					if (region.size() > size) break;
+
+					for (int dx = -1; dx <= 1; dx++) {
+						for (int dy = -1; dy <= 1; dy++) {
+							int ni = point.x + dx;
+							int nj = point.y + dy;
+
+							if (ni >= 0 && ni < img.rows &&
+								nj >= 0 && nj < img.cols &&
+								!visited[ni][nj] &&
+								copy.at<Vec3b>(ni, nj) == Vec3b(0, 0, 255)) {
+
+								q.push_back(Point2i(ni, nj));
+								visited[ni][nj] = true;
+							}
+						}
+					}
+				}
+
+				if (region.size() <= size) {
+					for (const Point2i& p : region) {
+						copy.at<Vec3b>(p.x, p.y) = Vec3b(0, 0, 0); // Mark as changed
+					}
+				}
+			}
+		}
+	}
+
+	return copy;
+}
+
+void do_canny_proiect(Mat img) {
+	int dx_vec[] = { 2,1,0,-1,-2,-1,0,1,0 };
+	int dy_vec[] = { 0,1,2,1,0,-1,-2,-1,0 };
+	int gauss_values[] = { 2,1,2,1,2,1,2,1,4 };
+	Mat gaus = filtru_trece_jos(img, gauss_values);
+
+	Mat ix_gauss = filtru_trece_sus_matrice_int(gaus, dx_vec);
+	Mat iy_gauss = filtru_trece_sus_matrice_int(gaus, dy_vec);
+
+	Mat M_gauss = m_gradient(ix_gauss, iy_gauss);
+	Mat teta_gauss = teta_mat(ix_gauss, iy_gauss);
+
+	Mat nnmax = suprimare_non_maxime(teta_gauss, M_gauss);
+
+	std::vector<int> hist(255, 0);
+	for (int i = 0; i < nnmax.rows; i++) {
+		for (int j = 0; j < nnmax.cols; j++) {
+			hist[(int)nnmax.at<uchar>(i, j)]++;
+		}
+	}
+	float p = 0.1;
+	int nr_non_muchie = (1 - p) * ((nnmax.rows * nnmax.cols) - hist[0]);
+	int sum = 0;
+
+	int high_t;
+	for (int i = 1; i <= 255; i++) {
+		sum += hist[i];
+		if (sum > nr_non_muchie) {
+			high_t = i;
+			break;
+		}
+	}
+	float k = 0.5;
+	int low_t = k * high_t;
+	canny_before_fin(nnmax, high_t, low_t);
+
+}
+
+void proiect() {
+	//Mat img = imread("Images/Mendeley periapical X-rays/594.png", IMREAD_GRAYSCALE);
+	//Mat img = imread("Images/Mendeley periapical X-rays/699.png", IMREAD_GRAYSCALE);
+	//Mat img = imread("Images/Mendeley periapical X-rays/571.png", IMREAD_GRAYSCALE);
+	//Mat img = imread("Images/xray1.bmp", IMREAD_GRAYSCALE);
+	Mat img = imread("Images/half_xray.png", IMREAD_GRAYSCALE);
+	//Mat img = imread("Images/xray2.png", IMREAD_GRAYSCALE);
+	//Mat img = imread("Images/xray3.png", IMREAD_GRAYSCALE);
+	//Mat img = imread("Images/Dental-periapical-x-ray-dataset/Images/X13556_20.jpg", IMREAD_GRAYSCALE);
+	//Mat img = imread("Images/Dental-periapical-x-ray-dataset/Images/X19331_7.jpg", IMREAD_GRAYSCALE);
+	Mat gmm = gamma(img, 2);
+	Mat hist_egal = egalizare_histograma(gmm);
+	Mat blacked = black_under_55(hist_egal);
+	Mat bin = binarizare_multinivel(blacked);
+	
+	int kernel3[5][5] = {
+	{  0,  -1,  -2,  -1,  0 },
+	{ -1,  -2,   0,  -2, -1 },
+	{ -2,   0,  20,   0, -2 },
+	{ -1,  -2,   0,  -2, -1 },
+	{  0,  -1,  -2,  -1,  0 }
+	};
+	Mat v1 = edge_det_diagonal(bin, kernel3);
+
+	Mat inm = inmxx(v1);
+	Mat dil = dilatare_and_make_background_white(inm);
+
+	std::vector<int> h = hist_vector_generator(dil);
+	Mat hist_matrix = showHistogram_proiect("x", h, img.cols, img.rows);
+	std::vector<int> valley_gaps = findValleysRobust(hist_matrix, h);
+
+
+	Mat dil1 = dilat_1(dil);
+
+	Mat objects = cover_similar_grays(bin);
+
+	Mat contour = draw_contour_on_black(bin);
+	Mat objects_contour = combine_colors_with_contour(objects, contour);
+	
+	Mat blacks_expanded = expand_blacks(objects_contour);
+	Mat turquoise_expanded = expand_turquoise(blacks_expanded);
+
+	Mat eroded = erode_small_turquoise_with_size_2(turquoise_expanded, 40);
+	Mat turq_exp2 = expand_turquoise(eroded);
+	Mat eroded2 = erode_small_turquoise_with_size_2(turq_exp2, 120);
+	Mat eroded3 = erode_small_red_with_size_2(eroded2, 50);
+	Mat turq_exp3 = expand_turquoise(eroded3);
+	Mat f = Mat(img.rows, img.cols, CV_8UC3);
+	cvtColor(dil, f, COLOR_GRAY2BGR);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (turquoise_expanded.at<Vec3b>(i, j)[2] == 255) {
+				f.at<Vec3b>(i, j) = Vec3b(0, 0, 255);
+			}
+			else if (turquoise_expanded.at<Vec3b>(i, j) == Vec3b(128, 128, 0)){
+				f.at<Vec3b>(i, j) = Vec3b(128, 128, 255);
+			}
+		}
+	}
+
+	Mat f2 = xpand_red(f);
+	Mat f3 = retract_reds_with_white_neighbors(f2);
+	Mat f4 = clear_red_patches(f3);
+	Mat f5 = drill_mine(f4, valley_gaps);
+
+	do_canny_proiect(dil);
+
+
+	imshow("f5", f5);
+	imshow("turq_exp3", turq_exp3);
+
+	cv::waitKey(0);
+}
+
+int main() 
+{
+	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
+    projectPath = _wgetcwd(0, 0);
+
+	int op;
+	do
+	{
+		system("cls");
+		destroyAllWindows();
+		printf("Menu:\n");
+		printf(" 1 - Open image\n");
+		printf(" 2 - Open BMP images from folder\n");
+		printf(" 3 - Image negative\n");
+		printf(" 4 - Image negative (fast)\n");
+		printf(" 5 - BGR->Gray\n");
+		printf(" 6 - BGR->Gray (fast, save result to disk) \n");
+		printf(" 7 - BGR->HSV\n");
+		printf(" 8 - Resize image\n");
+		printf(" 9 - Canny edge detection\n");
+		printf(" 10 - Edges in a video sequence\n");
+		printf(" 11 - Snap frame from live video\n");
+		printf(" 12 - Mouse callback demo\n");
+		printf(" 13 - negative kids\n");
+		printf(" 14 - additive negative kids\n");
+		printf(" 15 - multiplicative negative kids\n");
+		printf(" 16 - all gray kids\n");
+		printf(" 17 - squares\n");
+		printf(" 23 - flip camera\n");
+		printf(" 24 - colors to 3 grey matrix\n");
+		printf(" 40 - TEST a _ binarizare\n");
+		printf(" 41 - TEST b _ label\n");
+		printf(" 42 - TEST c \n");
+		printf(" 43 - TEST e \n");
+		printf(" 44 - Fill \n");
+		printf(" 45 - std_dev si binarizare automata \n");
+		printf(" 46 - Lab convolutii \n");
+		printf(" 47 - Lab filtre spatiale \n");
+		printf(" 48 - Lab 11 - canny si gradient\n");
+
+		printf(" 101 - proiect\n");
+
+		printf(" 0 - Exit\n\n");
+		printf("Option: ");
+		scanf("%d",&op);
+		switch (op)
+		{
+			case 1:
+				testOpenImage();
+				break;
+			case 2:
+				testOpenImagesFld();
+				break;
+			case 3:
+				testNegativeImage();
+				break;
+			case 4:
+				testNegativeImageFast();
+				break;
+			case 5:
+				testColor2Gray();
+				break;
+			case 6:
+				testImageOpenAndSave();
+				break;
+			case 7:
+				testBGR2HSV();
+				break;
+			case 8:
+				testResize();
+				break;
+			case 9:
+				testCanny();
+				break;
+			case 10:
+				testVideoSequence();
+				break;
+			case 11:
+				testSnap();
+				break;
+			case 12:
+				testMouseClick();
+				break;
+			case 13:
+				negative_image();
+				break;
+			case 14:
+				additive_negative();
+				break;
+			case 15:
+				multiplicative_negative();
+				break;
+			case 16:
+				negative_image();
+				additive_negative();
+				multiplicative_negative();
+				break;
+			case 17:
+				create_squares();
+				break;
+			case 23:
+				flipCamera();
+				break;
+			case 24:
+				color_to_3matrix();
+				break;
+			case 40:
+				test_a_binarizare();
+				break;
+			case 41:
+				test_b();
+				break;
+			case 42:
+				test_c();
+				break;
+			case 43:
+				test_e();
+				break;
+			case 44:
+				fill();
+				break;
+			case 45:
+				lab45();
+				break;
+			case 46:
+				lab_convolutii();
+				break;
+			case 47:
+				lab_filtre_spatiale();
+				break;
+			case 48:
+				lab_11();
+				break;
+			case 101:
+				proiect();
+				break;
+		}
+	}
+	while (op!=0);
+	return 0;
+}
